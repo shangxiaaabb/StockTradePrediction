@@ -5,7 +5,10 @@
 
 # Stock Trade Prediction
 
-# File construction
+[中文]('./README-ch.md)      
+[English]('./README-en.md)
+
+# 文件结构
 
 ```
 ├─data
