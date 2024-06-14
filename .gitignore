@@ -1,0 +1,7 @@
+*.o
+*.out
+*.exe
+*.pyc
+.ipynb_checkpoints
+*.pt
+*.h5
