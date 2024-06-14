@@ -7,6 +7,16 @@ class GenF4GCN():
     
     #原始数据转化为：days*bin_num的dataframe
     def df2matrix(file,col_name):
+        """change data to day*bin_num. the index is days. the coulmn is bin_num and the data
+        is value of the col_name
+
+        Args:
+            file (_type_): file path
+            col_name (_type_): csv columns
+
+        Returns:
+            _type_: dataframe
+        """
         df_org = pd.read_csv(file)
         df_org['date'] = pd.to_datetime((df_org['date']), format='%Y-%m-%d')  # 将date列转换为datetime格式
         df_org.set_index('date', inplace=True)  # 将date列设为行索引
@@ -33,6 +43,26 @@ class GenF4GCN():
     f7(imbalance)
     '''
     def genNewFeature4BinVolume(stock_info,file,lag_day=3,lag_bin=3,lag_week = 1):
+        """create the data
+        index: days, column: bin_num, data is the feature:[f1, f2, f3, f4, f5, f6, f7]
+        f1:bin_volume
+        f2: acc_volume
+        f3: avg_volume
+        f4: avg_prop_volume
+        f5: pre_week_bin
+        f6: volatility
+        f7:imbalance
+
+        Args:
+            stock_info (_type_): _description_
+            file (_type_): _description_
+            lag_day (int, optional): _description_. Defaults to 3.
+            lag_bin (int, optional): _description_. Defaults to 3.
+            lag_week (int, optional): _description_. Defaults to 1.
+
+        Returns:
+            _type_: _description_
+        """
         mdata = GenF4GCN.df2matrix(file,'bin_volume')
         result = pd.DataFrame(index=mdata.index, columns=mdata.columns)
         f1 = mdata
@@ -78,6 +108,18 @@ class GenF4GCN():
 
     # gen inputs and output
     def gen_inputs_output_data_leftup(lag_bin, lag_day, bin_num, stock_info,result):
+        """generate the date to model learnign
+
+        Args:
+            lag_bin (_type_): _description_
+            lag_day (_type_): _description_
+            bin_num (_type_): _description_
+            stock_info (_type_): _description_
+            result (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         m_data = result
         column_names = []
         # Generate column names
@@ -112,6 +154,13 @@ class GenF4GCN():
         return inputs_df,output_list
 
     def gen_adjacency_matrix_leftup(lag_bin, lag_day, stock_info):
+        """generate the normalized Laplacian matrix
+
+        Args:
+            lag_bin (_type_): _description_
+            lag_day (_type_): _description_
+            stock_info (_type_): _description_
+        """
         matrix_size = (lag_bin +1)*(lag_day + 1) 
         adj_matrix = np.zeros((matrix_size, matrix_size))
         node0=[]
@@ -180,7 +229,17 @@ class GenF4GCN():
 
 class Tools4gcn() :
     
-    def get_stocks_info(file_dir,file_type='.csv'):#默认为文件夹下的所有文件
+    def get_stocks_info(file_dir,file_type='.csv'):
+        """get te file list in the file_dir
+
+        Args:
+            file_dir (_type_): thr folder path
+            file_type (str, optional): the file type in folder path. Defaults to '.csv'.
+
+        Returns:
+            _type_: a list of the file path
+        """
+        #默认为文件夹下的所有文件
         lst = []
         for root, dirs, files in os.walk(file_dir):
             for file in files:
