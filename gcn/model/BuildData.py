@@ -135,22 +135,20 @@ class BuildData():
         # print(f'./data/volume/0308/{stock_info}_{lag_bin}_{lag_day}_inputs and output have been saved~')
         return inputs_df, output_list
     
-    def gen_adjacency_matrix(self, stock_info):
-        lag_day, lag_bin, lag_week = self.conf['lag_day'], self.conf['lag_bin'], self.conf['lag_week']
-        matrix_size = 12
-        adj_matrix = np.zeros(matrix_size, matrix_size)
-        node0, node1 = [], []
-        for i in range(1, matrix_size):
-            if (i not in node0):
-                adj_matrix[i, i - 1] = 1
-                if i>4: 
-                    adj_matrix[i, i-(lag_bin+1) - 1] = 1
-                else:
-                    adj_matrix[i-(lag_bin+1) - 1,i] = 1
-            else:
-                adj_matrix[i, i - 1 - lag_bin] = 1
+    def _gen_adj_matrix(self):
+        connection = [(1, 0), 
+              (9, 0), (12, 0), 
+              (8, 9), (8, 12), (5, 9), (11, 12), 
+              (4, 5), (4, 8), (7, 8), (7, 11), (10, 11), 
+              (3, 4), (3, 7), (6, 7), (6, 10), (2, 3), (2, 6)]
+        adj_matrix = np.zeros((13, 13))
+        for source, target in connection:
+            adj_matrix[source][target] = 1
+        
+        return adj_matrix
 
-        adjacency = adj_matrix.copy()
+    def gen_adjacency_matrix(self, stock_info):
+        adjacency = self._gen_adj_matrix
         I = np.identity(adjacency.shape[0])
         I[-1, -1] = 0
         adjacency = adjacency + I
@@ -165,35 +163,30 @@ class BuildData():
     def gen_station_coords_leftup(self, stock_info):
         lag_day, lag_bin, lag_week = self.conf['lag_day'], self.conf['lag_bin'], self.conf['lag_week']
         df = pd.DataFrame()
-        lag_day_list=[]
-        lag_bin_list=[]
-        for d in range(-lag_day, 1):
-            for b in range(-lag_bin, 1):
-                lag_day_list.append(d)
-                lag_bin_list.append(b)
-        df['lag_day'] = lag_day_list
-        df['lag_bin'] = lag_bin_list
-        station_coords=df[['lag_day','lag_bin']].values
+        lag_day_list, lag_bin_list = [], []
+        for t in range(-lag_day+ 1, 1):
+            for m in range(-lag_bin, 1):
+                lag_day_list.append(t)
+                lag_bin_list.append(m)
+        df['lag_day'], df['lag_bin'] = lag_day_list, lag_bin_list
+        station_coords= df[['lag_day','lag_bin']].values
         # np.save(f'data/volume/0308/{stock_info}_{lag_bin}_{lag_day}_graph_coords.npy', station_coords)
         return station_coords
 
-    def draw_adj(self, adj_matrix,stock_info):
-        lag_day, lag_bin, lag_week = self.conf['lag_day'], self.conf['lag_bin'], self.conf['lag_week']
-        # 可视化有向图
-        G = nx.DiGraph(adj_matrix.T)
+    def draw_adj(self, stock_info):
+        adj_matrix = self._gen_adj_matrix()
+        G = nx.DiGraph(adj_matrix)
         station_coords = self.gen_station_coords_leftup(stock_info)
         res = {}
         for i in range(len(station_coords)):
-            res[i] = [station_coords[i][0], abs(station_coords[i][1])]
+            res[i+2] = [station_coords[i][0], abs(station_coords[i][1])]
+        node0, node1 = res.pop(13), [7, 0]
+        res[0], res[1] = node0, node1
 
         res = dict(sorted(res.items(), key=lambda x: x[1][1], reverse=True))
 
-        pos = {}
-        for i, key in enumerate(res.keys()):
-            pos[i] = res[key]
-
-        plt.figure(figsize=(4, 4))
-        nx.draw_networkx(G,pos=pos,  with_labels=True, node_color='lightblue', edge_color='gray', arrows=True)
+        plt.figure(figsize=(10, 10))
+        nx.draw_networkx(G, pos= res,  with_labels=True, node_color='lightblue', edge_color='gray', arrows=True)
         plt.title("Directed Graph")
         plt.axis('off')
         plt.show()
@@ -209,6 +202,7 @@ if __name__ == "__main__":
     for i, stock_info in enumerate(stock_info_list):
         if i ==1:
             # '../data/0308'
-            file_path = f'{conf['file_dir']}{stock_info}_25_daily.csv'
-            inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info)
+            # file_path = f'{conf['file_dir']}{stock_info}_25_daily.csv'
+            # inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info)
+            BuildData(conf= conf).draw_adj(stock_info= None)
         stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
