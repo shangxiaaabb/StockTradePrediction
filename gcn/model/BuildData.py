@@ -136,10 +136,10 @@ class BuildData():
         return inputs_df, output_list
     
     def _gen_adj_matrix(self):
-        connection = [(1, 0), 
+        connection = [(1, 0),
               (9, 0), (12, 0), 
               (8, 9), (8, 12), (5, 9), (11, 12), 
-              (4, 5), (4, 8), (7, 8), (7, 11), (10, 11), 
+              (4, 5), (4, 8), (7, 8), (7, 11), (10, 11),
               (3, 4), (3, 7), (6, 7), (6, 10), (2, 3), (2, 6)]
         adj_matrix = np.zeros((13, 13))
         for source, target in connection:
