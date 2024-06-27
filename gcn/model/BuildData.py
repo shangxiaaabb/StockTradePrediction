@@ -41,13 +41,15 @@ class BuildData():
         df.set_index('date', inplace= True)
         df.sort_index(inplace= True)
         n, k = df.shape[0], 25
-        # TODO: 此部分代码可以优化
+        # TODO: 1、把 bin0 分离出来，而后补充到特征里面去，也就是需要在  self.genNewFeatureBinVolume() 把bin0 特征融合进来
         data = pd.DataFrame(np.array(df[col_name]).reshape(int(n/k), k),
                               columns= ['bin{}'.format(i) for i in range(k)]).drop('bin0', axis=1)
         data['date'] = pd.to_datetime(list(sorted(set(df.index))), format='%Y/%m/%d')
         data.set_index('date', inplace= True)
         data.sort_index(inplace=True)
         return data
+    
+    # def dealBin0
     
     def genNewFeatureBinVolume(self,
                                stock_info: str,
