@@ -199,12 +199,13 @@ if __name__ == "__main__":
             'lag_week': 1,
             'bin_num': 24,
             'file_dir': '../data/0308/'}
-    # for stock_info in BuildData(conf= conf):
     stock_info_list = tqdm(BuildData(conf= conf).get_files(), total= len(BuildData(conf= conf).get_files()))
     for i, stock_info in enumerate(stock_info_list):
         if i ==1:
-            # '../data/0308'
-            # file_path = f'{conf['file_dir']}{stock_info}_25_daily.csv'
+            '../data/0308'
+            file_path = f'{conf['file_dir']}{stock_info}_25_daily.csv'
             # inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info)
+            result = BuildData(conf= conf).genNewFeatureBinVolume(stock_info= None, file_path= file_path)
             BuildData(conf= conf).draw_adj(stock_info= None)
+            print(result)
         stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
