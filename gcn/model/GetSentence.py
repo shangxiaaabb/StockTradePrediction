@@ -1,10 +1,9 @@
 '''
 Author: Big-Yellow
 Date: 2024-06-30 11:05:50
-LastEditors: Big-Yellow
+LastEditors: Please set LastEditors
 '''
 
-from calendar import day_abbr
 import os
 import random
 import time
@@ -174,7 +173,6 @@ if __name__ == "__main__":
                    '603095': {'from_pages': 74, 'to_pages': 141}, 
                    '603359': {'from_pages': 174, 'to_pages': 202}, 
                    }
-    # <div class="update mod_time">06-25 10:01</div>
     soup = GetStockArticle(conf= conf)._open_url(url= f'https://guba.eastmoney.com/list,000753.html', type= None)
     # print(soup)
     for item in soup.find_all('div', class_ = ['update']):
