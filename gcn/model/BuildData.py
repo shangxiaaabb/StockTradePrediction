@@ -59,7 +59,8 @@ class BuildData():
         mdata = self.df2matrix(file_path= file_path, col_name= 'bin_volume')
         result = pd.DataFrame(index= mdata.index,
                               columns= mdata.columns)
-        f0 = 
+        # TODO: f0 处理方式
+        # f0 = 
         f1 = mdata # 每个交易日的成交量
         f2 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 累计成交量
         f3 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 平均成交量
