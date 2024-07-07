@@ -23,7 +23,7 @@ ua = UserAgent()
 import pandas as pd
 from pandas import DataFrame
 
-def RandomIP(IPAPI: str="http://webapi.http.zhimacangku.com/getip?neek=321a408a&num=10&type=1&time=4&pro=0&city=0&yys=0&port=1&pack=0&ts=0&ys=0&cs=0&lb=1&sb=&pb=4&mr=3&regions=&cf=0"):
+def RandomIP(IPAPI: str="http://webapi.http.zhimacangku.com/getip?neek=321a408a&num=400&type=1&time=1&pro=0&city=0&yys=0&port=1&pack=0&ts=0&ys=0&cs=0&lb=1&sb=&pb=4&mr=3&regions=110000,610000,230000,520000,370000,410000,340000,150000,620000,650000&cf=0"):
     ip_list = requests.get(IPAPI).text.split('\r\n')
     return ip_list
 
@@ -36,8 +36,8 @@ class GetStockArticle():
     def _open_url(self, url, type: str= 'xpath', IP_other: bool= False):
         headers = self.conf['headers']
         if IP_other:
-            ip_list = RandomIP()
-            proxyMeta = f"http://{ip_list[random.randint(0, len(ip_list)-1)]}"
+            # ip_list = self.ip_list
+            proxyMeta = f"http://{self.ip_list[random.randint(0, len(self.ip_list)-1)]}"
             proxies = {
                 "http": proxyMeta,
                 "https": proxyMeta,
@@ -66,18 +66,27 @@ class GetStockArticle():
             else:
                 url = f'http://guba.eastmoney.com/list,{stock_num}.html'
                 
-            root = self._open_url(url, IP_other= False)
-            
+            root = self._open_url(url, IP_other= True)
+
             all_reads += root.xpath("//*[@id='mainlist']/div/ul/li[1]/table/tbody/tr/td[1]/div//text()")
             all_reply += root.xpath("//*[@id='mainlist']/div/ul/li[1]/table/tbody/tr/td[2]/div//text()")
             all_titles += root.xpath("//*[@id='mainlist']/div/ul/li[1]/table/tbody/tr/td[3]/div/a//text()")
             all_links += root.xpath("//*[@id='mainlist']/div/ul/li[1]/table/tbody/tr/td[3]/div/a//@href")
-            all_times  += root.xpath("//*[@id='mainlist']/div/ul/li[1]/table/tbody/tr/td[5]/div//text()")
+            all_times += root.xpath("//*[@id='mainlist']/div/ul/li[1]/table/tbody/tr/td[5]/div//text()")
 
             time.sleep(time_sleep)
             pages_tqdm.set_postfix(now_stock = stock_num, now_pages= page)
 
         all_links[:] = [f'{guba_link}{link}' for link in all_links]
+
+        # times_list, contents_list = [], []
+        # for link in all_links:
+        #     soup = self._open_url(url= link, IP_other= True, type= None)
+        #     print(self._accurate_time(content_link= link, soup= soup))
+        #     times_list.append(self._accurate_time(content_link= link, soup= soup))
+        #     contents_list.append(self._accurate_content(content_link= link, soup= soup))
+        # return all_titles, all_times, all_links, all_reads, all_reply, times_list, contents_list
+
         return all_titles, all_times, all_links, all_reads, all_reply
 
     def accurate_info(self, all_links, all_times, ):
@@ -114,8 +123,7 @@ class GetStockArticle():
         if soup is None:
             soup = self._open_url(content_link, type= None)
         
-        span_time, div_time = soup.find('span', class_= ['time', 'txt']), soup.find('div', class_= ['time', 'txt'])
-        
+        span_time, div_time = soup.find('span', class_= ['time', 'txt']), soup.find('div', class_=['time', 'txt'])
         if get_time(span_time):
             return get_time(span_time)
         elif get_time(div_time):
@@ -158,17 +166,6 @@ class GetStockArticle():
         data_stock['times_new'] = time_new
         data_stock['content_new'] = content_new
 
-        # url_from, url_to = data_stock.loc[0, 'links'], data_stock.loc[data_stock.shape[0]- 1, 'links'] # 分别得到 最大的时间 最小的时间
-        # if time_reset:
-        #     time_old, time_new = data_stock['times'], []
-        #     time_from, time_to = self._accurate_time(url_from, data_stock.loc[0, 'times'])[:4], self._accurate_time(url_to, data_stock.loc[data_stock.shape[0]- 1, 'times'])[:4] # 得到时间由 大->小
-        #     year = time_from
-        #     for i, time_i in enumerate(time_old):
-        #         if time_i[:2] == '12':
-        #             year = time_to
-        #         time_new.append(datetime.strptime(f'{year}-{time_i}', '%Y-%m-%d %H:%M'))
-        #     data_stock['times_new'] = time_new
-
         data_stock.to_excel('../data/comment/asda.xlsx')
         return data_stock
 
@@ -176,16 +173,18 @@ class GetStockArticle():
         store_path = self.conf['store_path']
         if f'{stock_num}_comment.csv' not in os.listdir(self.conf['store_path']):
             all_titles, all_times, all_links, all_reads, all_reply = self.get_eastmoney_guba(stock_num= stock_num)
+            # all_titles, all_times, all_links, all_reads, all_reply, times_list, contents_list = self.get_eastmoney_guba(stock_num= stock_num)
             data = pd.DataFrame()
+            # data['titles'], data['times'], data['links'], data['reads'], data['reply'], data['time'], data['contents'] = all_titles, all_times, all_links, all_reads, all_reply, times_list, contents_list
             data['titles'], data['times'], data['links'], data['reads'], data['reply'] = all_titles, all_times, all_links, all_reads, all_reply
             data.to_csv(f'{store_path}{stock_num}_comment.csv')
         else:
             return None
 
 if __name__ == "__main__":
-    conf = {'from_pages': 1,
-            'to_pages': 1,
-            'time_sleep': random.randint(10, 20),
+    conf = {'from_pages': 18,
+            'to_pages': 19,
+            'time_sleep': random.randint(1, 3),
             'headers': {'User-Agent': ua.random},
             'store_path': '../data/comment/',
             }
@@ -205,17 +204,20 @@ if __name__ == "__main__":
                    '603359': {'from_pages': 174, 'to_pages': 202}, 
                    }
     # 测试提取效果
-    # all_titles, all_times, all_links, all_reads, all_reply = GetStockArticle(conf= conf).get_eastmoney_guba(stock_num= '000753')
+    # all_titles, all_times, all_links, all_reads, all_reply, times_list, contents_list = GetStockArticle(conf= conf).get_eastmoney_guba(stock_num= '300263')
     # print(all_links)
     # print(all_reply)
     # print(all_reads)
     # print(all_times)
+    # print(times_list)
+    # print(contents_list[:2])
 
     
     # soup = GetStockArticle(conf= conf)._open_url(url= f'https://guba.eastmoney.com/list,000753.html', type= None)
     # print(GetStockArticle(conf= conf)._accurate_time('https://guba.eastmoney.com/news,000753,1440613617.html', None))
     # GetStockArticle(conf= conf).reset_time_content(data= '../data/comment/000753_comment.csv', time_reset= True)
 
+    # 正式进行爬取
     for root, _, names in os.walk('../data/0308/'):
         for name in names:
             stock_num = str(name[:6])

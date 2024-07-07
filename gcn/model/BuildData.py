@@ -49,8 +49,8 @@ class BuildData():
         data.sort_index(inplace=True)
         return data
     
-    # def dealBin0
-    
+    def deal_bin0(self)
+
     def genNewFeatureBinVolume(self,
                                stock_info: str,
                                file_path: str,):
@@ -58,6 +58,7 @@ class BuildData():
         mdata = self.df2matrix(file_path= file_path, col_name= 'bin_volume')
         result = pd.DataFrame(index= mdata.index,
                               columns= mdata.columns)
+        f0 = 
         f1 = mdata # 每个交易日的成交量
         f2 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 累计成交量
         f3 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 平均成交量
@@ -110,7 +111,6 @@ class BuildData():
         
         inputs_df = pd.DataFrame(columns= column_names)
         z = 0
-        # for t in range(lag_day, m_data.shape[0]): # TODO: t 应该从7开始
         for t in range(7, m_data.shape[0]):
             for m in range(lag_bin, m_data.shape[1]):
                 # sub_matrix = m_data.iloc[(t- lag_day): t+1, (m- lag_bin): m+ 1]
