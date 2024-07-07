@@ -49,7 +49,8 @@ class BuildData():
         data.sort_index(inplace=True)
         return data
     
-    def deal_bin0(self)
+    def deal_bin0(self):
+        pass
 
     def genNewFeatureBinVolume(self,
                                stock_info: str,
