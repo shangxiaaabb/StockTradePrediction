@@ -31,7 +31,8 @@ class BuildData():
     
     def df2matrix(self,
                   file_path:str,
-                  col_name):
+                  col_name,
+                  bin_num: bool= True):
         """
         转换数据结构，以date为横坐标，制定col_name为纵坐标
         """
@@ -42,8 +43,20 @@ class BuildData():
         df.sort_index(inplace= True)
         n, k = df.shape[0], 25
         # TODO: 1、把 bin0 分离出来，而后补充到特征里面去，也就是需要在  self.genNewFeatureBinVolume() 把bin0 特征融合进来
-        data = pd.DataFrame(np.array(df[col_name]).reshape(int(n/k), k),
-                              columns= ['bin{}'.format(i) for i in range(k)]).drop('bin0', axis=1)
+        if bin_num:
+            data = pd.DataFrame(np.array(df[col_name]).reshape(int(n/k), k),
+                                columns= ['bin{}'.format(i) for i in range(k)]).drop('bin0', axis=1)
+        else:
+            bin0_list = []
+            for i in range(0, df.shape[0], 25):
+                if i == 0:
+                    bin0_list.append([(df[col_name].iloc[i]- df[col_name].iloc[i])/ df[col_name].iloc[i]])
+                else:
+                    bin0_list.append([(df[col_name].iloc[i]- df[col_name].iloc[i-25])/ df[col_name].iloc[i-25]])
+            result = np.array([[element[0]]*(k-1) for element in bin0_list])
+            data = pd.DataFrame(np.array(result),
+                                columns= ['bin0' for i in range(k-1)])
+
         data['date'] = pd.to_datetime(list(sorted(set(df.index))), format='%Y/%m/%d')
         data.set_index('date', inplace= True)
         data.sort_index(inplace=True)
@@ -60,7 +73,7 @@ class BuildData():
         result = pd.DataFrame(index= mdata.index,
                               columns= mdata.columns)
         # TODO: f0 处理方式
-        # f0 = 
+        f0 = self.df2matrix(file_path, 'bin_volume', bin_num= False)
         f1 = mdata # 每个交易日的成交量
         f2 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 累计成交量
         f3 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 平均成交量
@@ -92,7 +105,7 @@ class BuildData():
                     f5.iloc[t, m] = mdata.iloc[0, m]
                 else:
                     f5.iloc[t, m] = mdata.iloc[t- 5, m]
-                f_all = [f1.iloc[t, m],f2.iloc[t, m],f3.iloc[t, m],f4.iloc[t, m],f5.iloc[t, m],f6.iloc[t, m],f7.iloc[t, m]]
+                f_all = [f0.iloc[t, m], f1.iloc[t, m],f2.iloc[t, m],f3.iloc[t, m],f4.iloc[t, m],f5.iloc[t, m],f6.iloc[t, m],f7.iloc[t, m]]
                 result.iloc[t, m] = [float('{:.4f}'.format(i)) for i in f_all]
         # result.to_csv(f'./data/volume/0308/{stock_info}_25_daily_f_all.csv')
         return result
@@ -201,13 +214,15 @@ if __name__ == "__main__":
             'lag_week': 1,
             'bin_num': 24,
             'file_dir': '../data/0308/'}
-    stock_info_list = tqdm(BuildData(conf= conf).get_files(), total= len(BuildData(conf= conf).get_files()))
-    for i, stock_info in enumerate(stock_info_list):
-        if i ==1:
-            '../data/0308'
-            file_path = f'{conf['file_dir']}{stock_info}_25_daily.csv'
-            # inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info)
-            result = BuildData(conf= conf).genNewFeatureBinVolume(stock_info= None, file_path= file_path)
-            BuildData(conf= conf).draw_adj(stock_info= None)
-            print(result)
-        stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
+    result = BuildData(conf= conf).genNewFeatureBinVolume(stock_info= None, file_path= f'../data/0308/000046_XSHE_25_daily.csv')
+    print(result)
+    # stock_info_list = tqdm(BuildData(conf= conf).get_files(), total= len(BuildData(conf= conf).get_files()))
+    # for i, stock_info in enumerate(stock_info_list):
+    #     if i ==1:
+    #         '../data/0308'
+    #         file_path = f'{conf['file_dir']}{stock_info}_25_daily.csv'
+    #         # inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info)
+    #         result = BuildData(conf= conf).genNewFeatureBinVolume(stock_info= None, file_path= file_path)
+    #         BuildData(conf= conf).draw_adj(stock_info= None)
+    #         print(result)
+    #     stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
