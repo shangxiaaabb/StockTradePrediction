@@ -22,17 +22,14 @@ class GraphAttentionLayer(nn.Module):
 
         self.W = nn.Parameter(torch.empty(size= (in_features, out_features)))
         nn.init.xavier_uniform_(self.W.data, gain=1.414)  # 初始化
-
-        # TODO: change the shape to 2F x N
-        # self.a = nn.Parameter(torch.empty(size= (2*out_features, 1))) 
-        # nn.init.xavier_uniform_(self.a.data, gain=1.414)   # 初始化
-        # DOING change the a shape to 2F x N
-        # self.a = nn.Parameter(torch.empty(size= (2*out_features, N)))
         
         self.leakyrelu = nn.LeakyReLU(self.alpha)
 
     def MLP(self, N):
-        self.a = nn.Parameter(torch.empty(size= (2*self.out_features, N)))
+        self.a = nn.Parameter(torch.empty(size= (2*self.out_features, N))) # 2FxN
+        # TODO: 要计算：ac： 2FxN * N ==> 2FxN
+        # self.c = 
+        
         nn.init.xavier_uniform_(self.a.data, gain= 1.414)
 
     def _prepare_attentional_mechanism_input(self, h):
