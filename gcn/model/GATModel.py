@@ -44,7 +44,7 @@ class GraphAttentionLayer(nn.Module):
         inp： input_features [B, N, in_features]
         adj: adjacent_matrix [N, N]
         """
-        h = torch.matmul(inp, self.W)
+        h = torch.matmul(inp, self.W) # 计算 w*x
         N = h.size()[1]
         self.MLP(N)
 
