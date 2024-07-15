@@ -16,108 +16,8 @@ import numpy as np
 from zhipuai import ZhipuAI
 from tqdm import tqdm
 import os
-import logging
-
-# 配置日志
-class SelectiveLoggingHandler(logging.FileHandler):
-    def emit(self, record):
-        # 检查日志消息是否包含特定的字符串
-        if "HTTP/1.1 200 OK" not in record.getMessage():
-            # 如果不包含，则正常记录
-            super().emit(record)
-
-# 配置日志记录器
-logger = logging.getLogger('../log/情感分析日志.log')
-logger.setLevel(logging.ERROR)
-handler = SelectiveLoggingHandler('../log/情感分析日志.log')
-formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-
-
-class SentimentAnalysis:
-
-    @staticmethod
-    def prompt_build():
-        prompt = f"作为情感分析专家，请根据以下输入文本判断评论的情感态度。\
-            要求:\
-                1.情感态度表示方式：消极:-1，积极:1，中性:0\
-                2.请直接返回对应的数字，无需提供额外解释\
-            示例:'这只股票要完了'.输出:-1\
-            请分析以下文本的情感态度:"
-        return prompt
-    
-    @staticmethod
-    def ZhiPuSentiment(input_comment: str,
-                       row: int,
-                       col: int,
-                       api_key: str= 'daadb0e4e98a27cb82436c0f321eeb53.GtyK1RkdCkzhxt4V'):
-        client = ZhipuAI(
-            api_key= api_key
-        )
-        prompt = SentimentAnalysis.prompt_build()
-        response = client.chat.completions.create(
-            model = "glm-3-turbo",
-            messages= [
-                {'role': "user", "content": prompt+ input_comment},
-            ],
-            temperature = 0.3,
-        )
-        # print(response.choices[0].message.content, input_comment)
-        sentiment_scores = []
-        for score in  response.choices[0].message.content.replace(' ', '').split(','):
-            try:
-                sentiment_scores.append(int(score))
-            except Exception as e:
-                logging.info(f'{input_comment} 失败, {row}, {col}。错误类型： {e}')
-                continue
-        try:
-            score = max(sentiment_scores, key= sentiment_scores.count)
-        except Exception:
-            score = 0
-            print(f'{row}, {col}, {input_comment}\n')
-        return score
-
-    @staticmethod
-    def process_cell(cell_value, row_index, col_name):
-        try:
-            if isinstance(cell_value, str):
-                # 如果单元格是字符串，直接进行情感分析
-                sentiment_score = SentimentAnalysis.ZhiPuSentiment(cell_value, row_index, col_name)
-            elif isinstance(cell_value, list) and all(isinstance(t, str) for t in cell_value):
-                # 如果单元格是字符串列表，合并它们并进行分析
-                sentiment_score = SentimentAnalysis.ZhiPuSentiment(' '.join(cell_value), cell_value, row_index, col_name)
-            else:
-                # 其他情况，假设没有情感或中性
-                sentiment_score = 0
-            # print(sentiment_score)
-            return sentiment_score
-        except Exception as e:
-            logging.error(f"Error processing cell at row {row_index}, column '{col_name}' with value '{cell_value}': {e}")
-            return None
-
-    @staticmethod
-    def main(comment_path):
-        df = pd.read_csv(comment_path, index_col='Unnamed: 0')
-        df_number = pd.DataFrame(index= df.index,
-                                 columns= df.columns)
-        # tqdm_day = tqdm(total= df.shape[0])
-        # df_columns = list(df.columns)
-        for row in range(df.shape[0]):
-            for col in range(df.shape[1]):
-                # tqdm_day.set_postfix(index= df.index[row], bin_info= df_columns[col])
-                cell_value = df.iloc[row, col]
-                if isinstance(cell_value, str) and len(cell_value) <= 2:
-                    df_number.iloc[row, col] = 0
-                elif isinstance(cell_value, str):
-                    df_number.iloc[row, col] = SentimentAnalysis.ZhiPuSentiment(cell_value, row, col)
-            # tqdm_day.update(1)
-
-        # df_number = df.apply(lambda row: row.apply(lambda cell: SentimentAnalysis.process_cell(cell, row.name, row.name)))
-        store_path = comment_path.replace('.csv', '_sentiment.csv')
-        df_number.to_csv(store_path, encoding= 'utf-8')
-        return df_number
-    
+import time
+ 
 class CreateSentiment:
 
     def __init__(self,
@@ -192,6 +92,161 @@ class CreateSentiment:
                 current_start = current_end.strftime('%Y-%m-%d %H:%M')
         return bins
 
+
+class SentimentAnalysis:
+
+    @staticmethod
+    def prompt_build():
+        prompt = f"作为情感分析专家，请根据以下输入文本判断评论的情感态度。\
+            要求:\
+                1.情感态度表示方式：消极:-1，积极:1，中性:0\
+                2.请直接返回对应的数字，无需提供额外解释\
+                3.如果无法判断，请返回0\
+            示例:'这只股票要完了'.输出:-1\
+            请分析以下文本的情感态度:"
+        return prompt
+    
+    @staticmethod
+    def ZhiPuSentiment(input_comment: str,
+                       row: int,
+                       col: int,
+                       file,
+                       api_key: str= 'daadb0e4e98a27cb82436c0f321eeb53.GtyK1RkdCkzhxt4V'):
+        client = ZhipuAI(
+            api_key= api_key
+        )
+        prompt = SentimentAnalysis.prompt_build()
+        sentiment_scores = []
+
+        for text in input_comment.replace("[", '').replace("]",'').strip().split(' '):
+            try:
+                response = client.chat.completions.create(
+                    model = "glm-3-turbo",
+                    messages= [
+                        {'role': "user", "content": prompt+ text},
+                    ],
+                    temperature = 0.3,
+                )
+                sentiment_scores.append(int(response.choices[0].message.content))
+            except Exception as e:
+                score = 0
+                file.write(f'{row},{col}|{input_comment}.网络访问错误:{e};\n')
+                sentiment_scores.append(score)
+                # return score
+        # print(sentiment_scores)
+
+        try:
+            score = max(sentiment_scores, key= sentiment_scores.count)
+        except Exception as e:
+            score = 0
+            file.write(f'{row},{col}|{input_comment}.分数最大值错误:{e};\n')
+
+        return score
+        
+        # print(response.choices[0].message.content.replace(' ', '').split(','))
+        # for score in  response.choices[0].message.content.replace(' ', '').split(','):
+        #     if score.isdigit():
+        #         try:
+        #             sentiment_scores.append(int(score))
+        #         except Exception as e:
+        #             file.write(f'{row},{col}|{score}.分数取整错误:{e};\n')
+        #             continue
+        #     else:
+        #         file.write(f'{row},{col}|{score}.分数格式错误;\n')
+        #         continue
+        # try:
+        #     score = max(sentiment_scores, key= sentiment_scores.count)
+        # except Exception as e:
+        #     score = 0
+        #     file.write(f'{row},{col}|{input_comment}.分数最大值错误:{e};\n')
+        #     # print(f'{row}, {col}') #, {input_comment}\n')
+        # return score
+
+    @staticmethod
+    def process_cell(cell_value, row_index, col_name):
+        try:
+            if isinstance(cell_value, str):
+                # 如果单元格是字符串，直接进行情感分析
+                sentiment_score = SentimentAnalysis.ZhiPuSentiment(cell_value, row_index, col_name)
+            elif isinstance(cell_value, list) and all(isinstance(t, str) for t in cell_value):
+                # 如果单元格是字符串列表，合并它们并进行分析
+                sentiment_score = SentimentAnalysis.ZhiPuSentiment(' '.join(cell_value), cell_value, row_index, col_name)
+            else:
+                # 其他情况，假设没有情感或中性
+                sentiment_score = 0
+            # print(sentiment_score)
+            return sentiment_score
+        except Exception as e:
+            return None
+
+    @staticmethod
+    def main(comment_path):
+        df = pd.read_csv(comment_path, index_col='Unnamed: 0')
+        df_number = pd.DataFrame(index= df.index,
+                                 columns= df.columns)
+        store_path = comment_path.replace('.csv', '_sentiment.csv').replace('/0308-comment/', '/0308-number/')
+        # tqdm_day = tqdm(total= df.shape[0])
+        # df_columns = list(df.columns)
+        with open(f'../data/{comment_path[26: len(comment_path)-4]}.txt', 'a+', encoding= 'utf-8') as f:
+            f.write(comment_path+ '\n')
+            for row in range(df.shape[0]):
+                for col in range(df.shape[1]):
+                    # tqdm_day.set_postfix(index= df.index[row], bin_info= df_columns[col])
+                    cell_value = df.iloc[row, col]
+                    if isinstance(cell_value, str) and len(cell_value) <= 2:
+                        df_number.iloc[row, col] = 0
+                    elif isinstance(cell_value, str):
+                        df_number.iloc[row, col] = SentimentAnalysis.ZhiPuSentiment(cell_value, row, col, file= f)
+                # tqdm_day.update(1)
+
+        # df_number = df.apply(lambda row: row.apply(lambda cell: SentimentAnalysis.process_cell(cell, row.name, row.name)))
+        
+        df_number.to_csv(store_path, encoding= 'utf-8')
+        return df_number
+    
+    def process(comment_path):
+
+        def ZhiPu(input_comment: str,
+                           index,
+                           file,
+                            api_key: str= 'daadb0e4e98a27cb82436c0f321eeb53.GtyK1RkdCkzhxt4V'):
+            client = ZhipuAI(
+                api_key= api_key
+            )
+            prompt = SentimentAnalysis.prompt_build()
+
+            try:
+                response = client.chat.completions.create(
+                    model = "glm-3-turbo",
+                    messages= [
+                        {'role': "user", "content": prompt+ input_comment},
+                    ],
+                    temperature = 0.3,
+                )
+            except Exception as e:
+                score = 0
+                f.write(f'访问ZhiPu网络出现错误:{index};{e};\n')
+                return score
+            try:
+                return int(response.choices[0].message.content)
+            except Exception as e:
+                score = 0
+                f.write(f'对得分整数处理出错:{index};{response.choices[0].message.content};{e};\n')
+                return score
+
+        print(comment_path)
+        data = CreateSentiment(comment_path= comment_path).split_data()
+        score = []
+        with open('../data/log.txt', 'a+', encoding= 'utf-8') as f:
+            f.write(comment_path + '\n')
+            for i in range(data.shape[0]):
+                score.append(ZhiPu(data['newsTitle'][i], data['publishDate'][i], f))
+        data['sentiment-score'] = score
+        store_path = comment_path.replace('.csv', '_sentiment_score.csv').replace('comment/', '0308/0303-number')
+        data.to_csv(store_path, encoding= 'utf-8')
+        print('\n ok')
+        # print(data.head())
+   
 if __name__ == '__main__':
     # path_dir = '../data/comment/'
     # for path in os.listdir(path_dir):
@@ -202,7 +257,16 @@ if __name__ == '__main__':
     #                                        start_time = '2020-5-12 15:00',
     #                                        end_time = '2021-3-8 15:00')
     #     create_sentiment.split_bin()
+
+    # SentimentAnalysis.process(comment_path= '../data/comment/000046.csv')
+    time_start = time.time()
+
     path_dir = '../data/0308/0308-comment/'
     for path in os.listdir(path_dir):
-        if '000046' in path or '000753' in path:
+        if '002841' in path: #or '002882':  # in path or '300133' in path:
+            print(path)
             SentimentAnalysis.main(comment_path= os.path.join(path_dir, path))
+            time_end = time.time()
+            print(f'处理一个文件:{time_end - time_start}')
+    time_end = time.time()
+    print(f'耗时：{time_end - time_start}')
