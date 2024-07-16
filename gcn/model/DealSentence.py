@@ -263,7 +263,7 @@ if __name__ == '__main__':
 
     path_dir = '../data/0308/0308-comment/'
     for path in os.listdir(path_dir):
-        if '002841' in path: #or '002882':  # in path or '300133' in path:
+        if '300133' in path or '300174' in path or '300263' in path:
             print(path)
             SentimentAnalysis.main(comment_path= os.path.join(path_dir, path))
             time_end = time.time()

@@ -2,81 +2,66 @@
 import os
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
+
 
 class GenF4GCN():
     
     #原始数据转化为：days*bin_num的dataframe
-    def df2matrix(file, 
-                  col_name):
-        """change data to day*bin_num. the index is days. the coulmn is bin_num and the data
-        is value of the col_name
-
-        Args:
-            file (_type_): file path
-            col_name (_type_): csv columns
-
-        Returns:
-            _type_: dataframe
+    def df2matrix(file_path:str, 
+                  col_name: str=None, 
+                  bin_num: bool= True):
         """
-        df_org = pd.read_csv(file)
-        df_org['date'] = pd.to_datetime((df_org['date']), format='%Y-%m-%d')  # 将date列转换为datetime格式
-        df_org.set_index('date', inplace=True)  # 将date列设为行索引
-        df_org.sort_index(inplace=True)
-        n = df_org.shape[0]
-        k = 25  # Number of bin
-        # 将list转换为25列n/k行的DataFrame，并指定列名为bin1, bin2, ..., bin25
-        df = pd.DataFrame(np.array(df_org[col_name]).reshape(int(n / k), k),
-                          columns=['bin{}'.format(i) for i in range(k)])
-        df['date'] = pd.to_datetime(list(sorted(set(df_org.index))), format='%Y/%m/%d')  # 将date列转换为datetime格式
-        df.set_index('date', inplace=True)  # 将date列设为行索引
-        df.sort_index(inplace=True)  # 按日期排序
-        df = df.drop('bin0', axis=1) #去除第0个bin的数据
-        return df
+        转换数据结构，以date为横坐标，制定col_name为纵坐标
+        """
 
-    '''
-    基于原始数据生成days*bin_num*feature_num的dataframe,
-    f1(bin_volume)，
-    f2(acc_volume)，
-    f3(avg_volume)，
-    f4(avg_prop_volume)，
-    f5(pre_week_bin)，
-    f6(volatility)，
-    f7(imbalance)
-    '''
+        df = pd.read_csv(file_path)
+        df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+        df.set_index('date', inplace= True)
+        df.sort_index(inplace= True)
+        n, k = df.shape[0], 25
+        if bin_num:
+            data = pd.DataFrame(np.array(df[col_name]).reshape(int(n/k), k),
+                                    columns= ['bin{}'.format(i) for i in range(k)]).drop('bin0', axis=1)
+        else:
+            bin0_list = []
+            for i in range(0, df.shape[0], 25):
+                if i == 0:
+                    bin0_list.append([(df[col_name].iloc[i]- df[col_name].iloc[i])/ df[col_name].iloc[i]])
+                else:
+                    bin0_list.append([(df[col_name].iloc[i]- df[col_name].iloc[i-25])/ df[col_name].iloc[i-25]])
+            result = np.array([[element[0]]*(k-1) for element in bin0_list])
+            # print(result.shape)
+            data = pd.DataFrame(np.array(result),
+                                columns= ['bin0' for i in range(k-1)])
+        data['date'] = pd.to_datetime(list(sorted(set(df.index))), format='%Y/%m/%d')
+        data.set_index('date', inplace= True)
+        data.sort_index(inplace=True)
+        return data
+
     def genNewFeature4BinVolume(stock_info,
-                                file,
-                                lag_day=3,
-                                lag_bin=3,
+                                file_data,
+                                file_comment,
+                                lag_day= 3,
+                                lag_bin= 3,
                                 lag_week = 1):
         """create the data
-        index: days, column: bin_num, data is the feature:[f1, f2, f3, f4, f5, f6, f7]
-        f1:bin_volume
-        f2: acc_volume
-        f3: avg_volume
-        f4: avg_prop_volume
-        f5: pre_week_bin
-        f6: volatility
-        f7:imbalance
-
-        Args:
-            stock_info (_type_): _description_
-            file (_type_): _description_
-            lag_day (int, optional): _description_. Defaults to 3.
-            lag_bin (int, optional): _description_. Defaults to 3.
-            lag_week (int, optional): _description_. Defaults to 1.
-
-        Returns:
-            _type_: _description_
         """
-        mdata = GenF4GCN.df2matrix(file,'bin_volume')
+        mdata = GenF4GCN.df2matrix(file_data,'bin_volume')
         result = pd.DataFrame(index=mdata.index, columns=mdata.columns)
+
+        
+        f0 = GenF4GCN.df2matrix(file_data, 'bin_volume', False)
         f1 = mdata
         f2 = pd.DataFrame(index=mdata.index, columns=mdata.columns)
         f3 = pd.DataFrame(index=mdata.index, columns=mdata.columns)
         f4 = pd.DataFrame(index=mdata.index, columns=mdata.columns)
         f5 = pd.DataFrame(index=mdata.index, columns=mdata.columns)
-        f6 = GenF4GCN.df2matrix(file,'volatility')
-        f7 = GenF4GCN.df2matrix(file,'quote_imbalance')
+        f6 = GenF4GCN.df2matrix(file_data, 'volatility')
+        f7 = GenF4GCN.df2matrix(file_data, 'quote_imbalance')
+        f8 = pd.read_csv(file_comment, index_col= 'Unnamed: 0')
+        f0 = (f0.values+ f8['bin0'].values.reshape(f0.shape[0], 1)) # 直接将bin0的评论 和 f0的所有特征相加
+        f8 = f8.iloc[:, 1:]
 
         daily_volume = mdata.apply(lambda x: x.sum(), axis=1) 
         for i in range(len(mdata.index)):
@@ -102,29 +87,18 @@ class GenF4GCN():
                 else:
                     f5.iloc[i, j] =  mdata.iloc[i-5, j]
 
-                f_all = [f1.iloc[i,j],f2.iloc[i,j],f3.iloc[i, j],f4.iloc[i,j],f5.iloc[i,j],f6.iloc[i,j],f7.iloc[i,j]]   
+                f_all = [f0[i, j], f1.iloc[i, j], f2.iloc[i, j], f3.iloc[i, j],
+                         f4.iloc[i, j], f5.iloc[i, j], f6.iloc[i, j], f7.iloc[i, j], f8.iloc[i, j]]
 
                 f_all = [0 if np.isnan(i) else i for i in f_all]
                 result.iloc[i, j] = [float('{:.4f}'.format(i)) for i in f_all]      
 
-        result.to_csv(f'./data/volume/0308/{stock_info}_25_daily_f_all.csv')
+        result.to_csv(f'../data/volume/0308/Features/{stock_info}_25_daily_f_all.csv')
         
         return result
 
     # gen inputs and output
     def gen_inputs_output_data_leftup(lag_bin, lag_day, bin_num, stock_info,result):
-        """generate the date to model learnign
-
-        Args:
-            lag_bin (_type_): _description_
-            lag_day (_type_): _description_
-            bin_num (_type_): _description_
-            stock_info (_type_): _description_
-            result (_type_): _description_
-
-        Returns:
-            _type_: _description_
-        """
         m_data = result
         column_names = []
         # Generate column names
@@ -153,9 +127,8 @@ class GenF4GCN():
 
         output_list = [element for sublist in first_elements for element in sublist]
         input_matrix = inputs_df.values
-        np.save(f'./data/volume/0308/{stock_info}_{lag_bin}_{lag_day}_inputs.npy', input_matrix)
-        np.save(f'./data/volume/0308/{stock_info}_{lag_bin}_{lag_day}_output.npy', output_list)
-        print(f'./data/volume/0308/{stock_info}_{lag_bin}_{lag_day}_inputs and output have been saved~')
+        np.save(f'../data/volume/0308/Input/{stock_info}_{lag_bin}_{lag_day}_inputs.npy', input_matrix)
+        np.save(f'../data/volume/0308/Output/{stock_info}_{lag_bin}_{lag_day}_output.npy', output_list)
         return inputs_df,output_list
 
     def gen_adjacency_matrix_leftup(lag_bin, lag_day, stock_info):
@@ -190,7 +163,7 @@ class GenF4GCN():
         D_inv_sqrt = np.linalg.inv(np.sqrt(D))
         L = np.dot(D_inv_sqrt, adjacency).dot(D_inv_sqrt)
         normalized_laplacian_version = L.copy()
-        np.save(f'data/volume/0308/{stock_info}_{lag_bin}_{lag_day}_graph_input.npy', normalized_laplacian_version)
+        np.save(f'../data/volume/0308/GraphInput/{stock_info}_{lag_bin}_{lag_day}_graph_input.npy', normalized_laplacian_version)
 
         return normalized_laplacian_version
 
@@ -206,7 +179,7 @@ class GenF4GCN():
         df['lag_day'] = lag_day_list
         df['lag_bin'] = lag_bin_list
         station_coords=df[['lag_day','lag_bin']].values
-        np.save(f'data/volume/0308/{stock_info}_{lag_bin}_{lag_day}_graph_coords.npy', station_coords)
+        np.save(f'../data/volume/0308/GraphCoords/{stock_info}_{lag_bin}_{lag_day}_graph_coords.npy', station_coords)
         return station_coords
 
     def draw_adj(adj_matrix,lag_bin, lag_day,stock_info):
@@ -231,42 +204,32 @@ class GenF4GCN():
 
 class Tools4gcn() :
     
-    def get_stocks_info(file_dir,file_type='.csv'):
-        """get te file list in the file_dir
-
-        Args:
-            file_dir (_type_): thr folder path
-            file_type (str, optional): the file type in folder path. Defaults to '.csv'.
-
-        Returns:
-            _type_: a list of the file path
-        """
-        #默认为文件夹下的所有文件
-        lst = []
-        for root, dirs, files in os.walk(file_dir):
-            for file in files:
-                if(file_type == ''):
-                    lst.append(file)
-                else:
-                    if os.path.splitext(file)[1] == str(file_type):#获取指定类型的文件名
-                        lst.append(file)
-        stocks_info = list(set(s.split('_25')[0] for s in lst))
+    def get_stocks_info(file_dir,
+                        file_type='.csv'):
+        list_file, stocks_info = [], set()
+        for path in os.listdir(file_dir):
+            if '.csv' in path:
+                stocks_info.add(path[:6])
         return stocks_info
     
-
 if __name__ == "__main__":    
     lag_bin = 3
     lag_day = 3
     lag_week = 1
     bin_num=24
     mape_list = []
-    data_dir = './data/0308/'
+    data_dir = '../data/0308/0308-data/'
     stocks_info = Tools4gcn.get_stocks_info(data_dir)
-    print(stocks_info)
-    for stock_info in stocks_info[0]:
-        print(f'>>>>>>>>>>>>>>>>>>>>{stock_info}>>>>>>>>>>>>>>>>>>>>>>>')
-        file=f'./data/0308/{stock_info}_25_daily.csv'
-        result = GenF4GCN.genNewFeature4BinVolume(stock_info,file,lag_day,lag_bin,lag_week)
-        inputs_output_data = GenF4GCN.gen_inputs_output_data_leftup(lag_bin, lag_day, bin_num, stock_info,result)
-        graph_adj = GenF4GCN.gen_adjacency_matrix_leftup(lag_bin, lag_day, stock_info)
-        graph_coords = GenF4GCN.gen_station_coords_leftup(lag_bin, lag_day,stock_info)
+    # print(stocks_info)
+    # TODO: 代码需要大优化
+    stocks_info = tqdm(iter(stocks_info), total = len(stocks_info))
+    for stock_info in stocks_info:
+        file_data = f'../data/0308/0308-data/{stock_info}_XSHE_25_daily.csv'
+        file_comment = f'../data/0308/0308-number/{stock_info}_comment_sentiment.csv'
+        
+        if os.path.exists(file_data) and os.path.exists(file_comment):
+            result = GenF4GCN.genNewFeature4BinVolume(stock_info, file_data, file_comment, lag_day, lag_bin, lag_week)
+            inputs_output_data = GenF4GCN.gen_inputs_output_data_leftup(lag_bin, lag_day, bin_num, stock_info,result)
+            graph_adj = GenF4GCN.gen_adjacency_matrix_leftup(lag_bin, lag_day, stock_info)
+            graph_coords = GenF4GCN.gen_station_coords_leftup(lag_bin, lag_day,stock_info)
+            tqdm.set_postfix(stock_info=f'{stock_info}')

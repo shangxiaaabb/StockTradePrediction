@@ -28,11 +28,17 @@ class GraphAttentionLayer(nn.Module):
     def MLP(self, N):
         self.a = nn.Parameter(torch.empty(size= (2*self.out_features, N))) # 2FxN
         # TODO: 要计算：ac： 2FxN * N ==> 2FxN
+        # 暂时保持继续使用 2FxN 矩阵。在MLP中只是对所有和节点i有联系的所有的节点信息做了一个汇聚操作而已
         # self.c = 
         
         nn.init.xavier_uniform_(self.a.data, gain= 1.414)
 
     def _prepare_attentional_mechanism_input(self, h):
+        """
+        TODO: 创新点
+            1、对于h1 和 h2 之间的操作，也就是说对具有链接的点之间的“信息”进行汇聚操作（操作空间大）
+            2、对于汇聚后的MLP进行操作（空间不大）
+        """
         h1 = torch.matmul(h, self.a[:self.out_features, :])
         h2 = torch.matmul(h, self.a[self.out_features:, :])
         # broadcast add
@@ -51,7 +57,7 @@ class GraphAttentionLayer(nn.Module):
         e = self._prepare_attentional_mechanism_input(h)
         zero_vec = -1e12 * torch.ones_like(e)    # 将没有连接的边置为负无穷
 
-        attention = torch.where(adj>0, e, zero_vec)   # [B, N, N]
+        attention = torch.where(adj> 0, e, zero_vec)   # [B, N, N]
         attention = F.softmax(attention, dim=1)    # [B, N, N]！
         attention = F.dropout(attention, self.dropout)
         h_prime = torch.matmul(attention, h)  # [B, N, N].[B, N, out_features] => [B, N, out_features]
@@ -87,6 +93,6 @@ if __name__ == "__main__":
     x = torch.rand(size= (3, 13, 7))
     adj_matrix = torch.rand(size= (13, 13))
     # model = GraphAttentionLayer(in_features= 7, out_features= 14)
-    model = GAT(n_feat= 7, n_hid= 14, n_class=3)
+    model = GAT(n_feat= 7, n_hid= 14, n_class=3) # n_class 代表未来预测的日期
     out = model(x, adj_matrix)
     print(out.shape)
