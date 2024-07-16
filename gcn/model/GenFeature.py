@@ -3,6 +3,8 @@ import os
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+import networkx as nx
+import matplotlib.pyplot as plt
 
 
 class GenF4GCN():
@@ -24,12 +26,14 @@ class GenF4GCN():
             data = pd.DataFrame(np.array(df[col_name]).reshape(int(n/k), k),
                                     columns= ['bin{}'.format(i) for i in range(k)]).drop('bin0', axis=1)
         else:
-            bin0_list = []
+            bin0_list, mean_col_name = [], np.mean(df[col_name])
             for i in range(0, df.shape[0], 25):
-                if i == 0:
+                if df[col_name].iloc[i- 25] == 0:
+                    bin0_list.append([(df[col_name].iloc[i]- df[col_name].iloc[i-25])/ mean_col_name])
+                elif i == 0:
                     bin0_list.append([(df[col_name].iloc[i]- df[col_name].iloc[i])/ df[col_name].iloc[i]])
-                else:
-                    bin0_list.append([(df[col_name].iloc[i]- df[col_name].iloc[i-25])/ df[col_name].iloc[i-25]])
+                elif i != 0:
+                    bin0_list.append([(df[col_name].iloc[i]- df[col_name].iloc[i-25])/ df[col_name].iloc[i-25] ])
             result = np.array([[element[0]]*(k-1) for element in bin0_list])
             # print(result.shape)
             data = pd.DataFrame(np.array(result),
@@ -60,7 +64,10 @@ class GenF4GCN():
         f6 = GenF4GCN.df2matrix(file_data, 'volatility')
         f7 = GenF4GCN.df2matrix(file_data, 'quote_imbalance')
         f8 = pd.read_csv(file_comment, index_col= 'Unnamed: 0')
-        f0 = (f0.values+ f8['bin0'].values.reshape(f0.shape[0], 1)) # 直接将bin0的评论 和 f0的所有特征相加
+        try:
+            f0 = (f0.values+ f8['bin0'].values.reshape(f0.shape[0], 1)) # 直接将bin0的评论 和 f0的所有特征相加
+        except ValueError:
+            print(f8['bin0'].values.shape, f0.shape, stock_info)
         f8 = f8.iloc[:, 1:]
 
         daily_volume = mdata.apply(lambda x: x.sum(), axis=1) 
@@ -98,7 +105,7 @@ class GenF4GCN():
         return result
 
     # gen inputs and output
-    def gen_inputs_output_data_leftup(lag_bin, lag_day, bin_num, stock_info,result):
+    def gen_inputs_output_data_leftup(lag_bin, lag_day, bin_num, stock_info, result):
         m_data = result
         column_names = []
         # Generate column names
@@ -132,17 +139,10 @@ class GenF4GCN():
         return inputs_df,output_list
 
     def gen_adjacency_matrix_leftup(lag_bin, lag_day, stock_info):
-        """generate the normalized Laplacian matrix
-
-        Args:
-            lag_bin (_type_): _description_
-            lag_day (_type_): _description_
-            stock_info (_type_): _description_
-        """
         matrix_size = (lag_bin +1)*(lag_day + 1) 
         adj_matrix = np.zeros((matrix_size, matrix_size))
-        node0=[]
-        node1=[]
+        node0, node1 = [], []
+
         for i in range(lag_day+1):
             node0.append((lag_bin+1)*i)
         for i in range(1, matrix_size):
@@ -168,7 +168,7 @@ class GenF4GCN():
         return normalized_laplacian_version
 
     #gen graph_coords
-    def gen_station_coords_leftup(lag_bin, lag_day,stock_info):
+    def gen_station_coords_leftup(lag_bin, lag_day, stock_info):
         df = pd.DataFrame()
         lag_day_list=[]
         lag_bin_list=[]
@@ -182,10 +182,10 @@ class GenF4GCN():
         np.save(f'../data/volume/0308/GraphCoords/{stock_info}_{lag_bin}_{lag_day}_graph_coords.npy', station_coords)
         return station_coords
 
-    def draw_adj(adj_matrix,lag_bin, lag_day,stock_info):
+    def draw_adj(adj_matrix, lag_bin, lag_day, stock_info):
         # 可视化有向图
         G = nx.DiGraph(adj_matrix.T)
-        station_coords = gen_station_coords_leftup(lag_bin, lag_day,stock_info)
+        station_coords = GenF4GCN().gen_station_coords_leftup(lag_bin, lag_day,stock_info)
         res = {}
         for i in range(len(station_coords)):
             res[i] = [station_coords[i][0], abs(station_coords[i][1])]
@@ -224,12 +224,13 @@ if __name__ == "__main__":
     # TODO: 代码需要大优化
     stocks_info = tqdm(iter(stocks_info), total = len(stocks_info))
     for stock_info in stocks_info:
+        stocks_info.set_postfix(stock_info=f'{stock_info}')
         file_data = f'../data/0308/0308-data/{stock_info}_XSHE_25_daily.csv'
         file_comment = f'../data/0308/0308-number/{stock_info}_comment_sentiment.csv'
         
-        if os.path.exists(file_data) and os.path.exists(file_comment):
+        if os.path.exists(file_data) and os.path.exists(file_comment) and '002679' not in file_data:
             result = GenF4GCN.genNewFeature4BinVolume(stock_info, file_data, file_comment, lag_day, lag_bin, lag_week)
             inputs_output_data = GenF4GCN.gen_inputs_output_data_leftup(lag_bin, lag_day, bin_num, stock_info,result)
             graph_adj = GenF4GCN.gen_adjacency_matrix_leftup(lag_bin, lag_day, stock_info)
             graph_coords = GenF4GCN.gen_station_coords_leftup(lag_bin, lag_day,stock_info)
-            tqdm.set_postfix(stock_info=f'{stock_info}')
+            
