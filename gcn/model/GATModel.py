@@ -26,19 +26,14 @@ class GraphAttentionLayer(nn.Module):
         self.leakyrelu = nn.LeakyReLU(self.alpha)
 
     def MLP(self, N):
-        self.a = nn.Parameter(torch.empty(size= (2*self.out_features, N))) # 2FxN
-        # TODO: 要计算：ac： 2FxN * N ==> 2FxN
-        # 暂时保持继续使用 2FxN 矩阵。在MLP中只是对所有和节点i有联系的所有的节点信息做了一个汇聚操作而已
-        # self.c = 
-        
+        self.a = nn.Parameter(torch.empty(size= (2*self.out_features, N))) # 2FxN        
         nn.init.xavier_uniform_(self.a.data, gain= 1.414)
 
-    def _prepare_attentional_mechanism_input(self, h):
+    def _prepare_attentional_mechanism_input(self, h, adj):
         """
-        TODO: 创新点
-            1、对于h1 和 h2 之间的操作，也就是说对具有链接的点之间的“信息”进行汇聚操作（操作空间大）
-            2、对于汇聚后的MLP进行操作（空间不大）
+        TODO: ac: a:2FxN c:Nx1 ==> 2F
         """
+
         h1 = torch.matmul(h, self.a[:self.out_features, :])
         h2 = torch.matmul(h, self.a[self.out_features:, :])
         # broadcast add
@@ -49,8 +44,9 @@ class GraphAttentionLayer(nn.Module):
         """
         inp： input_features [B, N, in_features]
         adj: adjacent_matrix [N, N]
+        self.W: in_feature out_feature
         """
-        h = torch.matmul(inp, self.W) # 计算 w*x
+        h = torch.matmul(inp, self.W) # 计算 w*x B N out_fature
         N = h.size()[1]
         self.MLP(N)
 
