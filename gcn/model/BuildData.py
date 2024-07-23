@@ -160,8 +160,8 @@ class BuildData():
         output_list = [element for sublist in first_elements for element in sublist]
         input_matrix = inputs_df.values
 
-        np.save(f'../data/volume/0308/Input/{stock_info}_{lag_bin}_{lag_day}_inputs.npy', input_matrix)
-        np.save(f'../data/volume/0308/Output/{stock_info}_{lag_bin}_{lag_day}_output.npy', output_list)
+        # np.save(f'../data/volume/0308/Input/{stock_info}_{lag_bin}_{lag_day}_inputs.npy', input_matrix)
+        # np.save(f'../data/volume/0308/Output/{stock_info}_{lag_bin}_{lag_day}_output.npy', output_list)
 
         return inputs_df, output_list
     
@@ -231,7 +231,12 @@ if __name__ == "__main__":
             'bin_num': 24,
             'file_dir': '../data/0308/0308-data/',
             'comment_dir': '../data/0308/0308-number/'}
-    BuildData(conf= conf).draw_adj(stock_info= None)
+    # BuildData(conf= conf).draw_adj(stock_info= None)
+
+    input_df, _ = BuildData(conf= conf).gen_input_output_data(file_path= '../data/0308/0308-data/000046_XSHE_25_daily.csv',
+                                                comment_path= '../data/0308/0308-number/000046_comment_sentiment.csv',
+                                                stock_info= None)
+    print(input_df.head(), '\n', input_df.shape)
     # stock_info_list = tqdm(BuildData(conf= conf).get_files(), total= len(BuildData(conf= conf).get_files()))
     # for i, stock_info in enumerate(stock_info_list):
     #     file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily.csv'

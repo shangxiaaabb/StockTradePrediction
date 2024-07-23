@@ -5,22 +5,36 @@ Date: 2024-07-16 15:12:08
 
 import os
 import torch
+import numpy as np
 import torch.nn as nn
 import torch.functional as F
 from torch.utils.data import DataLoader, Dataset, random_split
 from torch import optim
 
 from model.GATModel import GAT
-# class StockDataset(Dataset):
-#     def __init__(self, path: str) -> None:
-#         super().__init__()
-#         self.path = path
 
-#     def __len__(self) -> int:
-#         return len(os.listdir(self.path))
+
+class StockDataset(Dataset):
+    def __init__(self, path: str, batch_size: int=32) -> None:
+        super().__init__()
+        self.path = path
+        self.batch_size = 32
+
+        self._load_data()
+
+    def __len__(self) -> int:
+        return len(self.new_data)- 13
     
-#     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
-#         return self._load_data(index)
+    def _load_data(self):
+        data = np.load(self.path, allow_pickle= True)
+        self.new_data = np.array([value for item in data for value in item], dtype= np.float32).resize(data.shape[0], 13, 9)
+        #TODO: 待补充
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        time_begin = index
+        return self.new_data[time_begin: time_begin+ self.batch_size, :, :]
+
+dataset = StockDataset(path= './data/volume/0308/Input/000046_3_3_inputs.npy',
+                       batch_size= 32)
 
 
 def train(model,
