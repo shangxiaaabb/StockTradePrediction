@@ -2,17 +2,17 @@
 Author: h-jie huangjie20011001@163.com
 Date: 2024-06-23 16:19:53
 '''
-
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch
-
 import numpy as np
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class GraphAttentionLayer(nn.Module):
 
-    def __init__(self, in_features, out_features, dropout= 0.5, alpha= 0.2, concat= True, *args, **kwargs) -> None:
+    def __init__(self, in_features, out_features, dropout= 0.5, alpha= 0.2, concat= True, device= device, *args, **kwargs) -> None:
         super(GraphAttentionLayer, self).__init__(*args, **kwargs)
         self.in_fetures = in_features
         self.out_features = out_features
@@ -20,23 +20,28 @@ class GraphAttentionLayer(nn.Module):
         self.alpha = alpha
         self.concat = True
 
+        self.device = device
+
         self.W = nn.Parameter(torch.empty(size= (in_features, out_features)))
         nn.init.xavier_uniform_(self.W.data, gain=1.414)  # 初始化
         
         self.leakyrelu = nn.LeakyReLU(self.alpha)
 
     def MLP(self, N):
-        self.a = nn.Parameter(torch.empty(size= (2*self.out_features, N))) # 2FxN        
+        self.a = nn.Parameter(torch.empty(size= (2*self.out_features, N))).to(device= device) # 2FxN
+        # TODO: 要计算：ac： 2FxN * N ==> 2FxN
+        # 暂时保持继续使用 2FxN 矩阵。在MLP中只是对所有和节点i有联系的所有的节点信息做了一个汇聚操作而已
+        # self.c = 
+        
         nn.init.xavier_uniform_(self.a.data, gain= 1.414)
 
-    def _prepare_attentional_mechanism_input(self, h, adj):
+    def _prepare_attentional_mechanism_input(self, h):
         """
-        TODO: ac: a:2FxN c:Nx1 ==> 2F
+        infer: 
+            https://github.com/Diego999/pyGAT/blob/master/layers.py
         """
-
         h1 = torch.matmul(h, self.a[:self.out_features, :])
         h2 = torch.matmul(h, self.a[self.out_features:, :])
-        # broadcast add
         e = h1 + h2
         return self.leakyrelu(e)
     
@@ -44,14 +49,14 @@ class GraphAttentionLayer(nn.Module):
         """
         inp： input_features [B, N, in_features]
         adj: adjacent_matrix [N, N]
-        self.W: in_feature out_feature
         """
-        h = torch.matmul(inp, self.W) # 计算 w*x B N out_fature
+        h = torch.matmul(inp, self.W) # 计算 w*x
+        adj = adj.to(h.device)
         N = h.size()[1]
         self.MLP(N)
 
         e = self._prepare_attentional_mechanism_input(h)
-        zero_vec = -1e12 * torch.ones_like(e)    # 将没有连接的边置为负无穷
+        zero_vec = -1e12 * torch.ones_like(e).to(h.device)   # 将没有连接的边置为负无穷
 
         attention = torch.where(adj> 0, e, zero_vec)   # [B, N, N]
         attention = F.softmax(attention, dim=1)    # [B, N, N]！
@@ -86,9 +91,10 @@ class GAT(nn.Module):
         return x[:, -1, :] # log_softmax速度变快，保持数值稳定
 
 if __name__ == "__main__":
-    x = torch.rand(size= (3, 13, 7))
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    x = torch.rand(size= (10, 13, 7)).to(device= device)
     adj_matrix = torch.rand(size= (13, 13))
-    # model = GraphAttentionLayer(in_features= 7, out_features= 14)
-    model = GAT(n_feat= 7, n_hid= 14, n_class=3) # n_class 代表未来预测的日期
+
+    model = GAT(n_feat= 7, n_hid= 14, n_class= 7, n_heads= 1).to(device= device) # n_class 代表未来预测的日期
     out = model(x, adj_matrix)
     print(out.shape)

@@ -179,14 +179,13 @@ class GenF4GCN():
         df['lag_day'] = lag_day_list
         df['lag_bin'] = lag_bin_list
         station_coords=df[['lag_day','lag_bin']].values
-        if stock_info:
-            np.save(f'../data/volume/0308/GraphCoords/{stock_info}_{lag_bin}_{lag_day}_graph_coords.npy', station_coords)
+        np.save(f'../data/volume/0308/GraphCoords/{stock_info}_{lag_bin}_{lag_day}_graph_coords.npy', station_coords)
         return station_coords
 
     def draw_adj(adj_matrix, lag_bin, lag_day, stock_info):
         # 可视化有向图
         G = nx.DiGraph(adj_matrix.T)
-        station_coords = GenF4GCN.gen_station_coords_leftup(lag_bin, lag_day, stock_info)
+        station_coords = GenF4GCN().gen_station_coords_leftup(lag_bin, lag_day,stock_info)
         res = {}
         for i in range(len(station_coords)):
             res[i] = [station_coords[i][0], abs(station_coords[i][1])]
@@ -221,37 +220,17 @@ if __name__ == "__main__":
     mape_list = []
     data_dir = '../data/0308/0308-data/'
     stocks_info = Tools4gcn.get_stocks_info(data_dir)
-
-    matrix_size = (lag_bin +1)*(lag_day + 1) 
-    adj_matrix = np.zeros((matrix_size, matrix_size))
-    node0, node1 = [], []
-
-    for i in range(lag_day+1):
-        node0.append((lag_bin+1)*i)
-    for i in range(1, matrix_size):
-        if (i not in node0):
-            adj_matrix[i, i - 1] = 1
-            if i>4: 
-                adj_matrix[i, i-(lag_bin+1) - 1] = 1
-            else:
-                adj_matrix[i-(lag_bin+1) - 1,i] = 1
-        else:
-            adj_matrix[i, i - 1 - lag_bin] = 1
-
-    adjacency = adj_matrix.copy()
-
-    GenF4GCN.draw_adj(adj_matrix= adjacency, lag_bin= 3, lag_day= 3, stock_info= None)
-
+    # print(stocks_info)
     # TODO: 代码需要大优化
-    # stocks_info = tqdm(iter(stocks_info), total = len(stocks_info))
-    # for stock_info in stocks_info:
-    #     stocks_info.set_postfix(stock_info=f'{stock_info}')
-    #     file_data = f'../data/0308/0308-data/{stock_info}_XSHE_25_daily.csv'
-    #     file_comment = f'../data/0308/0308-number/{stock_info}_comment_sentiment.csv'
+    stocks_info = tqdm(iter(stocks_info), total = len(stocks_info))
+    for stock_info in stocks_info:
+        stocks_info.set_postfix(stock_info=f'{stock_info}')
+        file_data = f'../data/0308/0308-data/{stock_info}_XSHE_25_daily.csv'
+        file_comment = f'../data/0308/0308-number/{stock_info}_comment_sentiment.csv'
         
-    #     if os.path.exists(file_data) and os.path.exists(file_comment) and '002679' not in file_data:
-    #         result = GenF4GCN.genNewFeature4BinVolume(stock_info, file_data, file_comment, lag_day, lag_bin, lag_week)
-    #         inputs_output_data = GenF4GCN.gen_inputs_output_data_leftup(lag_bin, lag_day, bin_num, stock_info,result)
-    #         graph_adj = GenF4GCN.gen_adjacency_matrix_leftup(lag_bin, lag_day, stock_info)
-    #         graph_coords = GenF4GCN.gen_station_coords_leftup(lag_bin, lag_day,stock_info)
+        if os.path.exists(file_data) and os.path.exists(file_comment) and '002679' not in file_data:
+            result = GenF4GCN.genNewFeature4BinVolume(stock_info, file_data, file_comment, lag_day, lag_bin, lag_week)
+            inputs_output_data = GenF4GCN.gen_inputs_output_data_leftup(lag_bin, lag_day, bin_num, stock_info,result)
+            graph_adj = GenF4GCN.gen_adjacency_matrix_leftup(lag_bin, lag_day, stock_info)
+            graph_coords = GenF4GCN.gen_station_coords_leftup(lag_bin, lag_day,stock_info)
             

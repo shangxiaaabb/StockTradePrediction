@@ -117,7 +117,8 @@ class BuildData():
                 f_all = [f0[t, m], f1.iloc[t, m], f2.iloc[t, m], f3.iloc[t, m],
                          f4.iloc[t, m], f5.iloc[t, m], f6.iloc[t, m], f7.iloc[t, m], f8.iloc[t, m]]
                 result.iloc[t, m] = [float('{:.4f}'.format(i)) for i in f_all]
-        # result.to_csv(f'./data/volume/0308/{stock_info}_25_daily_f_all.csv')
+        if stock_info != None:
+            result.to_csv(f'../data/volume/0308/Features/{stock_info}_25_daily_f_all.csv')
         return result
 
     def gen_input_output_data(self, 
@@ -160,8 +161,9 @@ class BuildData():
         output_list = [element for sublist in first_elements for element in sublist]
         input_matrix = inputs_df.values
 
-        # np.save(f'../data/volume/0308/Input/{stock_info}_{lag_bin}_{lag_day}_inputs.npy', input_matrix)
-        # np.save(f'../data/volume/0308/Output/{stock_info}_{lag_bin}_{lag_day}_output.npy', output_list)
+        if stock_info != None:
+            np.save(f'../data/volume/0308/Input/{stock_info}_{lag_bin}_{lag_day}_inputs.npy', input_matrix)
+            np.save(f'../data/volume/0308/Output/{stock_info}_{lag_bin}_{lag_day}_output.npy', output_list)
 
         return inputs_df, output_list
     
@@ -201,8 +203,8 @@ class BuildData():
                 lag_bin_list.append(m)
         df['lag_day'], df['lag_bin'] = lag_day_list, lag_bin_list
         station_coords= df[['lag_day','lag_bin']].values
-        if stock_info:
-            np.save(f'../data/volume/0308/GraphCoords/{stock_info}_{lag_bin}_{lag_day}_graph_coords.npy', station_coords)
+        
+        np.save(f'../data/volume/0308/GraphCoords/{stock_info}_{lag_bin}_{lag_day}_graph_coords.npy', station_coords)
 
         return station_coords
 
@@ -231,20 +233,18 @@ if __name__ == "__main__":
             'bin_num': 24,
             'file_dir': '../data/0308/0308-data/',
             'comment_dir': '../data/0308/0308-number/'}
-    # BuildData(conf= conf).draw_adj(stock_info= None)
+    stock_info_list = tqdm(BuildData(conf= conf).get_files(), total= len(BuildData(conf= conf).get_files()))
+    for i, stock_info in enumerate(stock_info_list):
 
-    input_df, _ = BuildData(conf= conf).gen_input_output_data(file_path= '../data/0308/0308-data/000046_XSHE_25_daily.csv',
-                                                comment_path= '../data/0308/0308-number/000046_comment_sentiment.csv',
-                                                stock_info= None)
-    print(input_df.head(), '\n', input_df.shape)
-    # stock_info_list = tqdm(BuildData(conf= conf).get_files(), total= len(BuildData(conf= conf).get_files()))
-    # for i, stock_info in enumerate(stock_info_list):
-    #     file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily.csv'
-    #     comment_path = f'{conf["comment_dir"]}{stock_info}_comment_sentiment.csv'
-        
-    #     if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
-    #         inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
-    #         BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)
+        if stock_info[:2] == '60':
+            file_path = f'{conf["file_dir"]}{stock_info}_XSHG_25_daily.csv'
+        else:
+            file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily.csv'
+        comment_path = f'{conf["comment_dir"]}{stock_info}_comment_sentiment.csv'
+        # print(file_path)
+        if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
+            inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
+            BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)
 
-    #         # result = BuildData(conf= conf).genNewFeatureBinVolume(stock_info= stock_info, file_path= file_path, comment_path= comment_path)
-    #     stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
+            # result = BuildData(conf= conf).genNewFeatureBinVolume(stock_info= stock_info, file_path= file_path, comment_path= comment_path)
+        stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
