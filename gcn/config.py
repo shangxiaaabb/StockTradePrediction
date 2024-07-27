@@ -1,3 +1,7 @@
+'''
+Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
+Date: 2024-07-27 21:15:33
+'''
 import os
 
 class Config():
@@ -16,9 +20,9 @@ class Config():
         self.print_freq = 1
 
         # train
-        self.epochs = 16
+        self.epochs = 64
         self.warm_up = 1
-        self.batch_size = 6
+        self.batch_size = 16
 
         # optimizer
         self.lr = 0.0025
@@ -27,4 +31,7 @@ class Config():
 
         # dataset
         self.pred_length = 7
-        self.train_length = 32
+        self.train_length = 30
+
+        # model
+        self.n_head = 2

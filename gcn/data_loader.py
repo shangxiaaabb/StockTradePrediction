@@ -1,3 +1,7 @@
+'''
+Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
+Date: 2024-07-27 21:15:33
+'''
 from torch.utils.data import DataLoader, Dataset, random_split
 import torch
 import numpy as np
@@ -23,9 +27,8 @@ class StockDataset(Dataset):
 
         self.input_data = np.array([value for item in data for value in item], dtype= np.float32).reshape(data.shape[0], 13, 9)
 
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, index: int):
         time_begin = index
-
         return self.input_data[time_begin: time_begin+ self.train_size, :, :], self.output_data[time_begin: time_begin+ self.pred_size, :]
     
 if __name__ == "__main__":
