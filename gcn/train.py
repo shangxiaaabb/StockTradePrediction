@@ -183,8 +183,10 @@ def main(input_path, output_path):
 
 if __name__ == "__main__":
     # try:
-    input_path = './data/volume/0308/Input/000046_3_3_inputs.npy' 
-    output_path = './data/volume/0308/Output/000046_3_3_output.npy'
+    # input_path = './data/volume/0308/Input/000046_3_3_inputs.npy'
+    # output_path = './data/volume/0308/Output/000046_3_3_output.npy'
+    input_path = './data/volume/0308/Input/000753_3_3_inputs.npy'
+    output_path = './data/volume/0308/Output/000753_3_3_output.npy'
     main(input_path= input_path, output_path= output_path)
     # except Exception as e:
         # logger.info('ERROR: {}'.format(e))

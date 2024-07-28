@@ -6,4 +6,9 @@
 *.pt
 *.h5
 *.npy
+*.xml
+*.log
+*.pt
+saved_models/*
+saved_models/scalar/*
 volume/*
