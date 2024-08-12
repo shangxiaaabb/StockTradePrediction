@@ -1,8 +1,3 @@
-'''
-Author: Jie Huang huangjie20011001@163.com
-Date: 2024-07-16 15:12:08
-'''
-
 import os
 import time
 import torch
@@ -10,11 +5,11 @@ import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 import torch.functional as F
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, Dataset
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
-from GHATModel import GAT
+from GHATModel import Encoder
 # from gcn.model.GHATModel import GAT
 from util import logger_init, Stats
 from config import Config
@@ -69,7 +64,7 @@ def train(train_loader, model, criterion, epoch, optimizer):
         
         input_data, output_data = input_data.to(device, non_blocking= True), output_data.to(device, non_blocking= True).float()
 
-        predicts = model(input_data, adj= build_adj())
+        predicts = model(input_data, adj_matrix= build_adj())
         loss = criterion(predicts, output_data)
         losses.update_by_avg(loss.item(), input_data.shape[0])
         batch_losses.update_by_avg(loss.item(), input_data.shape[0])
@@ -145,7 +140,7 @@ def main(input_path, output_path):
     # laod model
     # 模型输入数据格式为：batch_size, time_length, node_num, node_fetures
     # 模型输出数据格式为：batch_size, pred_length, node_features
-    model = GAT(n_feat= 9, n_hid= 18, pred_length= conf.pred_length, n_heads= conf.n_head)
+    model = Encoder(input_size= 9, hidden_size= 12, pred_length= conf.pred_length, n_heads= 6, n_layers= 6)
     model = model.to(device= device)
     criterion = nn.MSELoss().to(device= device)
     optimizer = optim.Adam(model.parameters(), lr= conf.lr)
