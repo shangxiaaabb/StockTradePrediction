@@ -74,7 +74,7 @@ class BuildData():
         mdata = self.df2matrix(file_path= file_path, col_name= 'bin_volume')
         result = pd.DataFrame(index= mdata.index,
                               columns= mdata.columns)
-
+        #BUG: 补充数据正则化操作
         f0 = self.df2matrix(file_path, 'bin_volume', bin_num= False)
         f1 = mdata # 每个交易日的成交量
         f2 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 累计成交量
@@ -83,7 +83,7 @@ class BuildData():
         f5 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 前一周成交量
         f6 = self.df2matrix(file_path, 'volatility')  # 价格波动性
         f7 = self.df2matrix(file_path,'quote_imbalance') # 报价不平衡率
-        f8 = pd.read_csv(comment_path, index_col= 'Unnamed: 0')
+        f8 = pd.read_csv(comment_path, index_col= 'Unnamed: 0') # comment
 
         try:
             f0 = (f0.values+ f8['bin0'].values.reshape(f0.shape[0], 1)) # 直接将bin0的评论 和 f0的所有特征相加
@@ -242,6 +242,7 @@ if __name__ == "__main__":
             file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily_normalized.csv'
         comment_path = f'{conf["comment_dir"]}{stock_info}_comment_sentiment.csv'
         # print(file_path)
+
         if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
             inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
             BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)

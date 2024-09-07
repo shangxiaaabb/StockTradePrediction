@@ -156,10 +156,10 @@ class Encoder(nn.Module):
         out = out.view(batch_size, self.pred_length, self.input_size)
         return out
 
-# if __name__ == "__main__":
-#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#     x = torch.rand(size= (32, 32, 13, 9)).to(device= device) # batch_size time_length node node_features
-#     adj_matrix = torch.rand(size= (13, 13))
-#     encoder = Encoder(input_size= 9, hidden_size= 12, pred_length= 7, n_heads= 3, n_layers= 3).to(device)
-#     out = encoder(x, adj_matrix)
-#     print(f'输入数据形状：{x.shape}, 输出数据形状：{out.shape}')
+if __name__ == "__main__":
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    x = torch.rand(size= (32, 32, 13, 9)).to(device= device) # batch_size time_length node node_features
+    adj_matrix = torch.rand(size= (13, 13))
+    encoder = Encoder(input_size= 9, hidden_size= 12, pred_length= 7, n_heads= 3, n_layers= 3).to(device)
+    out = encoder(x, adj_matrix)
+    print(f'输入数据形状：{x.shape}, 输出数据形状：{out.shape}')

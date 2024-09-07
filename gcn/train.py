@@ -9,8 +9,8 @@ from torch.utils.data import DataLoader, Dataset
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
-from GHATModel import Encoder
-# from gcn.model.GHATModel import GAT
+# from GHATModel import Encoder
+from model.GHATModel import GAT
 from util import logger_init, Stats
 from config import Config
 from data_loader import StockDataset
@@ -63,8 +63,8 @@ def train(train_loader, model, criterion, epoch, optimizer):
             group['lr'] = batch_lr
         
         input_data, output_data = input_data.to(device, non_blocking= True), output_data.to(device, non_blocking= True).float()
-
-        predicts = model(input_data, adj_matrix= build_adj())
+        # print(input_data.shape, build_adj().shape)
+        predicts = model(input_data, build_adj())
         loss = criterion(predicts, output_data)
         losses.update_by_avg(loss.item(), input_data.shape[0])
         batch_losses.update_by_avg(loss.item(), input_data.shape[0])
@@ -140,7 +140,10 @@ def main(input_path, output_path):
     # laod model
     # 模型输入数据格式为：batch_size, time_length, node_num, node_fetures
     # 模型输出数据格式为：batch_size, pred_length, node_features
-    model = Encoder(input_size= 9, hidden_size= 12, pred_length= conf.pred_length, n_heads= 6, n_layers= 6)
+    # model = Encoder(input_size= 9, hidden_size= 12, pred_length= conf.pred_length, n_heads= 6, n_layers= 6)
+
+    #BUG: 补充一个输入提前筛选出特征，而后确定出最后的参数 n_feat
+    model = GAT(n_feat= 9, n_hid= 14, pred_length= conf.pred_length, n_heads= conf.n_head)
     model = model.to(device= device)
     criterion = nn.MSELoss().to(device= device)
     optimizer = optim.Adam(model.parameters(), lr= conf.lr)
