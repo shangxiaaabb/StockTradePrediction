@@ -25,13 +25,18 @@ class Config():
         self.batch_size = 32
 
         # optimizer
-        self.lr = 4e-3
+        self.lr = 1e-5
         self.power = 1.25
         self.grad_clip = dict(norm_type=2, max_norm=10)
 
         # dataset
-        self.pred_length = 3
-        self.train_length = 30
+        self.pred_length = 7
+        self.train_length = 20
 
         # model
-        self.n_head = 2
+        self.n_head = 4
+        self.n_hid = 16
+
+        # features select
+        self.train_features = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+        self.pred_features = [1] # [0, 1, 2, 3, 4, 5, 6, 7, 8]

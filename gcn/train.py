@@ -55,6 +55,8 @@ def train(train_loader, model, criterion, epoch, optimizer):
 
     batches = len(train_loader)
     end = time.time()
+
+    losses = batch_losses = 0.0
     for batch_i, (input_data, output_data) in enumerate(train_loader):
         batch_data_time.update_by_sum(time.time()- end, 1)
 
@@ -66,39 +68,48 @@ def train(train_loader, model, criterion, epoch, optimizer):
         # print(input_data.shape, build_adj().shape)
         predicts = model(input_data, build_adj())
         loss = criterion(predicts, output_data)
-        losses.update_by_avg(loss.item(), input_data.shape[0])
-        batch_losses.update_by_avg(loss.item(), input_data.shape[0])
 
-        optimizer.zero_grad()
+        losses += loss.item()/ input_data.shape[0]
+        batch_losses += loss.item()/ input_data.shape[0]
+
+        # losses.update_by_avg(loss.item(), input_data.shape[0])
+        # batch_losses.update_by_avg(loss.item(), input_data.shape[0])
+
         loss.backward()
-
+        if conf.grad_clip is not None:
+            nn.utils.clip_grad_norm_(model.parameters(), **conf.grad_clip)
+        optimizer.step()
+        optimizer.zero_grad()
+        
         batch_total_time.update_by_sum(time.time()- end, 1)
-
         if (batch_i+ 1) % conf.print_freq == 0:
             logger.info(
                 'EPOCH [{}/{}], BATCH [{}/{}], DataTime [{:.3f}], BatchTime [{:.3f}], LR[{:.6f}] LOSS [{:.6f}]'.format(
                     epoch+ 1, conf.epochs, batch_i+ 1, batches,
                     batch_data_time.get_sum(), batch_total_time.get_sum(),
-                    batch_lr, batch_losses.get_avg()
+                    batch_lr, batch_losses
                 )
             )
-        writer.add_scalar('train-batch/loss', batch_losses.get_avg(), epoch* batches+ batch_i+ 1)
+        # writer.add_scalar('train-batch/loss', batch_losses.get_avg(), epoch* batches+ batch_i+ 1)
+        writer.add_scalar('train-batch/loss', batch_losses, epoch* batches+ batch_i+ 1)
 
         # reset stats per batch
         batch_total_time.reset()
         batch_data_time.reset()
-        batch_losses.reset()
+        # batch_losses.reset()
+        batch_losses = 0.0
 
         end = time.time()
 
     # log print (epoch)
     logger.info('-' * 97 + 'train' + '-' * 98)
     logger.info('EPOCH[{}/{}] LOSS[{:.6f}]'.format(
-        epoch + 1, conf.epochs, losses.get_avg()))
+        epoch + 1, conf.epochs, losses/batches))
     logger.info('-' * 200)
 
     # visualize train (epoch)
-    writer.add_scalar('train-epoch/Loss', losses.get_avg(), epoch + 1)
+    # writer.add_scalar('train-epoch/Loss', losses.get_avg(), epoch + 1)
+    writer.add_scalar('train-epoch/Loss', losses/batches, epoch + 1)
 
 def val(val_loader, model, criterion, epoch):
     losses = Stats('Loss')
@@ -132,18 +143,17 @@ def val(val_loader, model, criterion, epoch):
     return losses.get_avg()
 
 def main(input_path, output_path):
-    train_dataset = StockDataset(input_path= input_path, output_path= output_path, train_size= conf.train_length, pred_size= conf.pred_length)
+    train_dataset = StockDataset(input_path= input_path, output_path= output_path, train_size= conf.train_length, pred_size= conf.pred_length,
+                                 train_features= conf.train_features, pred_features= conf.pred_features)
     # test_dataset = StockDataset()
     train_dataloader = DataLoader(train_dataset, batch_size= conf.batch_size, shuffle= False)
     # test_dataloader = DataLoader(test_dataset, batch_size= conf.batch_size, shuffle= False)
 
     # laod model
-    # 模型输入数据格式为：batch_size, time_length, node_num, node_fetures
-    # 模型输出数据格式为：batch_size, pred_length, node_features
-    # model = Encoder(input_size= 9, hidden_size= 12, pred_length= conf.pred_length, n_heads= 6, n_layers= 6)
-
     #BUG: 补充一个输入提前筛选出特征，而后确定出最后的参数 n_feat
-    model = GAT(n_feat= 9, n_hid= 14, pred_length= conf.pred_length, n_heads= conf.n_head)
+    # model = GAT(n_feat= 9, n_hid= 14, pred_length= conf.pred_length, n_heads= conf.n_head)
+    model = GAT(n_feat= len(conf.train_features), n_hid= conf.n_hid, out_features= len(conf.pred_features), 
+                pred_length= conf.pred_length, n_heads= conf.n_head)
     model = model.to(device= device)
     criterion = nn.MSELoss().to(device= device)
     optimizer = optim.Adam(model.parameters(), lr= conf.lr)

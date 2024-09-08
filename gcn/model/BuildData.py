@@ -2,13 +2,13 @@
 Author: h-jie huangjie20011001@163.com
 Date: 2024-06-23 16:41:21
 '''
-
+import os
 import pandas as pd
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
-import os
 from tqdm import tqdm
+from sklearn.preprocessing import StandardScaler
 
 class BuildData():
 
@@ -19,7 +19,6 @@ class BuildData():
         self.file_dir = conf['file_dir']
         self.stocks_info = self.get_files()
         
-
     def get_files(self,
                   file_type: str= '.csv'):
         stocks_info = set()
@@ -37,15 +36,21 @@ class BuildData():
         """
 
         df = pd.read_csv(file_path)
+        # 正则化处理
+        scaler = StandardScaler()
+        for features in ['daily_volume', 'bin_volume', 'volatility','quote_imbalance']:
+            df[features] = scaler.fit_transform(df[features].values.reshape(-1, 1))
+
         df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
         df.set_index('date', inplace= True)
         df.sort_index(inplace= True)
         n, k = df.shape[0], 25
-        # TODO: 1、把 bin0 分离出来，而后补充到特征里面去，也就是需要在  self.genNewFeatureBinVolume() 把bin0 特征融合进来
+
         if bin_num:
             data = pd.DataFrame(np.array(df[col_name]).reshape(int(n/k), k),
                                 columns= ['bin{}'.format(i) for i in range(k)]).drop('bin0', axis=1)
         else:
+            # build bin0 as a feature
             bin0_list, mean_col_name = [], np.mean(df[col_name])
             for i in range(0, df.shape[0], 25):
                 if df[col_name].iloc[i- 25] == 0:
@@ -62,9 +67,6 @@ class BuildData():
         data.set_index('date', inplace= True)
         data.sort_index(inplace=True)
         return data
-    
-    def deal_bin0(self):
-        pass
 
     def genNewFeatureBinVolume(self,
                                stock_info: str,
@@ -74,6 +76,7 @@ class BuildData():
         mdata = self.df2matrix(file_path= file_path, col_name= 'bin_volume')
         result = pd.DataFrame(index= mdata.index,
                               columns= mdata.columns)
+        
         #BUG: 补充数据正则化操作
         f0 = self.df2matrix(file_path, 'bin_volume', bin_num= False)
         f1 = mdata # 每个交易日的成交量
@@ -98,14 +101,16 @@ class BuildData():
 
                 if m < lag_bin -1:
                     bin_volume = mdata.iloc[t, :m+1] 
-                    f3.iloc[t, m] = np.sum(bin_volume)/3
+                    f3.iloc[t, m] = np.mean(bin_volume)
+                    # f3.iloc[t, m] = np.sum(bin_volume)/3
                 else:
                     bin_volume = mdata.iloc[t, m- lag_bin+1: m+1]
                     f3.iloc[t, m] = np.sum(bin_volume)/ 3
 
                 if t < lag_day- 1:
                     pro_volume = mdata.iloc[:t+1, m]/ daily_volume[:t+1]
-                    f4.iloc[t, m] = np.sum(pro_volume)/3
+                    f4.iloc[t, m] = np.mean(pro_volume)
+                    # f4.iloc[t, m] = np.sum(pro_volume)/3
                 else:
                     pro_volume = mdata.iloc[t- lag_bin+ 1: t+ 1, m]/ daily_volume[t- lag_bin+ 1: t+ 1]
                     f4.iloc[t, m] = np.sum(pro_volume)/3
@@ -128,7 +133,7 @@ class BuildData():
         """
         生成不同节点数据
         """
-        lag_day, lag_bin, lag_week = self.conf['lag_day'], self.conf['lag_bin'], self.conf['lag_week']
+        lag_day, lag_bin, lag_week = self.conf['lag_day'], self.conf['lag_bin'], self.conf['lag_week'] # 3 3 
         m_data = self.genNewFeatureBinVolume(stock_info= stock_info,
                                              file_path= file_path,
                                              comment_path= comment_path)
@@ -139,8 +144,8 @@ class BuildData():
         
         inputs_df = pd.DataFrame(columns= column_names)
         z = 0
-        for t in range(7, m_data.shape[0]):
-            for m in range(lag_bin, m_data.shape[1]):
+        for t in range(5, m_data.shape[0]):
+            for m in range(lag_bin+1, m_data.shape[1]):
                 # sub_matrix = m_data.iloc[(t- lag_day): t+1, (m- lag_bin): m+ 1]
                 sub_matrix = m_data.iloc[(t- lag_day)+1: t+ 1, (m- lag_bin): m+1]
                 row = []
@@ -148,7 +153,7 @@ class BuildData():
                     row0 = sub_matrix.iloc[i, :].values
                     for j in range(0, lag_bin+ 1):
                         row.append(row0[j])
-                node0, node1 = row.pop(), m_data.iloc[t-7, m]
+                node0, node1 = row.pop(), m_data.iloc[t-5, m]
                 row.insert(0, node0)
                 row.insert(1, node1)
                 inputs_df.loc[z] = row
@@ -237,9 +242,10 @@ if __name__ == "__main__":
     for i, stock_info in enumerate(stock_info_list):
 
         if stock_info[:2] == '60':
-            file_path = f'{conf["file_dir"]}{stock_info}_XSHG_25_daily_normalized.csv'
+            file_path = f'{conf["file_dir"]}{stock_info}_XSHG_25_daily.csv'
         else:
-            file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily_normalized.csv'
+            file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily.csv'
+
         comment_path = f'{conf["comment_dir"]}{stock_info}_comment_sentiment.csv'
         # print(file_path)
 

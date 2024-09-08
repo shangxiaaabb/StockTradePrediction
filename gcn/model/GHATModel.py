@@ -30,26 +30,16 @@ class GraphAttentionLayer(nn.Module):
         self.a = nn.Parameter(torch.empty(size= (2*self.out_features, N))).to(device= device) # 2FxN        
         nn.init.xavier_uniform_(self.a.data, gain= 1.414)
 
-    def _prepare_attentional_mechanism_input(self, h):
+    def com_attention(self, h: Tensor, adj: Tensor, connect_way: str='sum'):
         """
         infer: 
             https://github.com/Diego999/pyGAT/blob/master/layers.py
-        #TODO: 对比传统模型，在a的基础上补充一个 (ac)^T。其中c为独热编码
-        """
-        h1 = torch.matmul(h, self.a[:self.out_features, :])
-        h2 = torch.matmul(h, self.a[self.out_features:, :])
-        e = h1 + h2
-        return self.leakyrelu(e)
-
-    def com_attention(self, h: Tensor, adj: Tensor, connect_way: str='sum'):
-        """
         h: batch_size time_length node_num out_features
         #Bug: 如何去处理没有节点连接的边
         """
         batch_size, time_length, num_nodes, out_features = h.shape
 
         c = torch.eye(adj.shape[0]).to(h.device)
-        # attention = torch.zeros_like(h)
         attention = torch.zeros(batch_size, time_length, num_nodes, num_nodes).to(h.device)
         for i in range(0, c.shape[0], 1):
             ac = torch.matmul(self.a, c[i]).unsqueeze(-1) # a: 2F N c:N ==> 2Fx1
@@ -57,8 +47,6 @@ class GraphAttentionLayer(nn.Module):
             index = torch.where(adj[:, i]>0)[0]
             if connect_way == 'sum':
                 if index.numel() == 0:
-                    # h1 = h2 = h[:, :, i, :]
-                    # attention[:, :, i, :] = torch.matmul(torch.cat([h1, h2], dim=2), ac)
                     attention[:, :, i, :] = torch.matmul(h[:, :, i, :], ac[:self.out_features, :])
                 else:
                     h1, h2 = h[:, :, i, :], h[:, :, index, :].sum(dim= 2)
@@ -76,16 +64,8 @@ class GraphAttentionLayer(nn.Module):
         self.MLP(N)
 
         attention = self.com_attention(h, adj)
-
-        # e = self._prepare_attentional_mechanism_input(h)
-        # zero_vec = -1e12 * torch.ones_like(e).to(h.device)   # 将没有连接的边置为负无穷
-        # attention = torch.where(adj> 0, e, zero_vec)   # [B, N, N]
-        # attention = F.softmax(attention, dim=1)    # [B, N, N]！
-        # attention = F.dropout(attention, self.dropout)
-
         h_prime = torch.matmul(attention, h)  # [B, N, N].[B, N, out_features] => [B, N, out_features]
 
-        # print(f"attention: {attention.shape}, test: {test.shape}, h: {h.shape}, h_prime: {h_prime.shape}")
         if self.concat:
             return F.relu(h_prime)
         else:
@@ -95,34 +75,52 @@ class GraphAttentionLayer(nn.Module):
         return self.__class__.__name__ + ' (' + str(self.in_features) + ' -> ' + str(self.out_features) + ')'
     
 class GAT(nn.Module):
-    def __init__(self, n_feat: int=9, n_hid: int= 14, pred_length: int=7, dropout:float=0.5, alpha: float=0.3, n_heads: int=2, *args, **kwargs) -> None:
-        super(GAT, self).__init__(*args, **kwargs)
+    def __init__(self, n_feat: int=9, n_hid: int= 14, out_features: int= 8, pred_length: int=7, dropout:float=0.5, alpha: float=0.3, n_heads: int=2) -> None:
+        """
+        n_feat: input features
+        n_hid: hidden
+        pred_length: the predict time length
+        """
+        super(GAT, self).__init__()
         self.dropout = dropout
         self.pred_length = pred_length
         self.n_feat = n_feat
-        self.attentions = [GraphAttentionLayer(n_feat, n_hid, dropout=dropout, alpha=alpha, concat=True) for _ in range(n_heads)]
-        for i, attention in enumerate(self.attentions):
-            self.add_module('attention_{}'.format(i), attention)
+        self.out_features = out_features
         
-        # self.out_att = GraphAttentionLayer(n_hid * n_heads, n_hid, dropout=dropout,alpha=alpha, concat=False)
+        self.attentions1 = nn.Sequential(
+            *[GraphAttentionLayer(n_feat, n_hid, dropout= dropout, concat= True) for _ in range(n_heads)]
+            )
+        self.attentions2 = nn.Sequential(
+            *[GraphAttentionLayer(n_hid* n_heads, n_hid, dropout= dropout, concat= True) for _ in range(n_heads)]
+            )
+        self.attentions3 = nn.Sequential(
+            *[GraphAttentionLayer(n_hid* n_heads, n_hid, dropout= dropout, concat= True) for _ in range(n_heads)]
+            )
+        
+        self.out_att = GraphAttentionLayer(n_hid * n_heads,  out_features, dropout=dropout,alpha=alpha, concat=False)
     
     def out_mlp(self, input_features):
         self.out = nn.Sequential(
             nn.Linear(input_features, input_features),
             nn.ReLU(),
-            nn.Linear(input_features, self.pred_length* 9),
+            nn.LayerNorm(input_features),
+            nn.Linear(input_features, self.pred_length* self.out_features),
             nn.ReLU(),
         ).to(device)
 
     def forward(self, x: Tensor, adj: Tensor):
-        x = torch.cat([att(x, adj) for att in self.attentions], dim=-1)
+        x = torch.cat([att(x, adj) for att in self.attentions1], dim=-1)
+        # print(x.shape)
+        x = torch.cat([att(x, adj) for att in self.attentions2], dim=-1)
+        x = torch.cat([att(x, adj) for att in self.attentions3], dim=-1)
+        # print(x.shape)
         x = F.dropout(x, self.dropout)
         # x = self.out_att(x, adj)
         x = x.view(x.shape[0], -1)
-        
+
         self.out_mlp(input_features= x.shape[-1])
         x = self.out(x)
-        x = x.view(x.shape[0], self.pred_length, self.n_feat)
+        x = x.view(x.shape[0], self.pred_length, self.out_features)
         
         return x
 
@@ -140,11 +138,11 @@ if __name__ == "__main__":
         return torch.tensor(adj_matrix)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    x = torch.rand(size= (32, 32, 13, 8)).to(device= device) # batch_size time_length node_num features
+    x = torch.rand(size= (32, 20, 13, 9)).to(device= device) # batch_size time_length node_num features
     adj_matrix = _gen_adj_matrix().to(device)
     import time
     start_time = time.time()
-    model = GAT().to(device= device) # n_class 代表未来预测的日期
+    model = GAT(out_features= 1).to(device= device) # n_class 代表未来预测的日期
     out = model(x, adj_matrix)
     print(f"model use time {time.time()- start_time}")
     # print(out.shape) # 32 7 9 batch_size pred_length out_features
