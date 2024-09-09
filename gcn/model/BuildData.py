@@ -144,6 +144,7 @@ class BuildData():
         
         inputs_df = pd.DataFrame(columns= column_names)
         z = 0
+        #TODO: 检查这部分代码
         for t in range(5, m_data.shape[0]):
             for m in range(lag_bin+1, m_data.shape[1]):
                 # sub_matrix = m_data.iloc[(t- lag_day): t+1, (m- lag_bin): m+ 1]
@@ -238,19 +239,25 @@ if __name__ == "__main__":
             'bin_num': 24,
             'file_dir': '../data/0308/0308-data/',
             'comment_dir': '../data/0308/0308-number/'}
-    stock_info_list = tqdm(BuildData(conf= conf).get_files(), total= len(BuildData(conf= conf).get_files()))
-    for i, stock_info in enumerate(stock_info_list):
+    # stock_info_list = tqdm(BuildData(conf= conf).get_files(), total= len(BuildData(conf= conf).get_files()))
+    # for i, stock_info in enumerate(stock_info_list):
 
-        if stock_info[:2] == '60':
-            file_path = f'{conf["file_dir"]}{stock_info}_XSHG_25_daily.csv'
-        else:
-            file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily.csv'
+    #     if stock_info[:2] == '60':
+    #         file_path = f'{conf["file_dir"]}{stock_info}_XSHG_25_daily.csv'
+    #     else:
+    #         file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily.csv'
 
-        comment_path = f'{conf["comment_dir"]}{stock_info}_comment_sentiment.csv'
-        # print(file_path)
+    #     comment_path = f'{conf["comment_dir"]}{stock_info}_comment_sentiment.csv'
+    #     # print(file_path)
 
-        if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
-            inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
-            BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)
-            # result = BuildData(conf= conf).genNewFeatureBinVolume(stock_info= stock_info, file_path= file_path, comment_path= comment_path)
-        stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
+    #     if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
+    #         inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
+    #         BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)
+    #         # result = BuildData(conf= conf).genNewFeatureBinVolume(stock_info= stock_info, file_path= file_path, comment_path= comment_path)
+    #     stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
+
+    # test
+    input_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= '../data/0308/0308-data/000046_XSHE_25_daily.csv',
+                                                    comment_path= '../data/0308/0308-number/000046_comment_sentiment.csv',
+                                                    stock_info= None)
+    print(input_df.iloc[:5, :2])

@@ -146,7 +146,7 @@ def main(input_path, output_path):
     train_dataset = StockDataset(input_path= input_path, output_path= output_path, train_size= conf.train_length, pred_size= conf.pred_length,
                                  train_features= conf.train_features, pred_features= conf.pred_features)
     # test_dataset = StockDataset()
-    train_dataloader = DataLoader(train_dataset, batch_size= conf.batch_size, shuffle= False)
+    train_dataloader = DataLoader(train_dataset, batch_size= conf.batch_size, shuffle= False, drop_last=True)
     # test_dataloader = DataLoader(test_dataset, batch_size= conf.batch_size, shuffle= False)
 
     # laod model
@@ -155,7 +155,8 @@ def main(input_path, output_path):
     model = GAT(n_feat= len(conf.train_features), n_hid= conf.n_hid, out_features= len(conf.pred_features), 
                 pred_length= conf.pred_length, n_heads= conf.n_head)
     model = model.to(device= device)
-    criterion = nn.MSELoss().to(device= device)
+    # criterion = nn.MSELoss().to(device= device)
+    criterion = nn.L1Loss().to(device)
     optimizer = optim.Adam(model.parameters(), lr= conf.lr)
 
     for epoch in range(conf.epochs):

@@ -67,7 +67,7 @@ class GraphAttentionLayer(nn.Module):
         h_prime = torch.matmul(attention, h)  # [B, N, N].[B, N, out_features] => [B, N, out_features]
 
         if self.concat:
-            return F.relu(h_prime)
+            return self.leakyrelu(h_prime)
         else:
             return h_prime 
 
@@ -75,7 +75,7 @@ class GraphAttentionLayer(nn.Module):
         return self.__class__.__name__ + ' (' + str(self.in_features) + ' -> ' + str(self.out_features) + ')'
     
 class GAT(nn.Module):
-    def __init__(self, n_feat: int=9, n_hid: int= 14, out_features: int= 8, pred_length: int=7, dropout:float=0.5, alpha: float=0.3, n_heads: int=2) -> None:
+    def __init__(self, n_feat: int=9, n_hid: int= 14, out_features: int= 8, pred_length: int=7, dropout:float=0.3, alpha: float=0.3, n_heads: int=2) -> None:
         """
         n_feat: input features
         n_hid: hidden
@@ -102,20 +102,20 @@ class GAT(nn.Module):
     def out_mlp(self, input_features):
         self.out = nn.Sequential(
             nn.Linear(input_features, input_features),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.LayerNorm(input_features),
             nn.Linear(input_features, self.pred_length* self.out_features),
-            nn.ReLU(),
+            nn.LeakyReLU(),
         ).to(device)
 
     def forward(self, x: Tensor, adj: Tensor):
         x = torch.cat([att(x, adj) for att in self.attentions1], dim=-1)
         # print(x.shape)
-        x = torch.cat([att(x, adj) for att in self.attentions2], dim=-1)
-        x = torch.cat([att(x, adj) for att in self.attentions3], dim=-1)
+        # x = torch.cat([att(x, adj) for att in self.attentions2], dim=-1)
+        # x = torch.cat([att(x, adj) for att in self.attentions3], dim=-1)
         # print(x.shape)
         x = F.dropout(x, self.dropout)
-        # x = self.out_att(x, adj)
+        x = self.out_att(x, adj)
         x = x.view(x.shape[0], -1)
 
         self.out_mlp(input_features= x.shape[-1])
@@ -138,7 +138,7 @@ if __name__ == "__main__":
         return torch.tensor(adj_matrix)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    x = torch.rand(size= (32, 20, 13, 9)).to(device= device) # batch_size time_length node_num features
+    x = torch.rand(size= (32, 72, 13, 9)).to(device= device) # batch_size time_length node_num features
     adj_matrix = _gen_adj_matrix().to(device)
     import time
     start_time = time.time()
