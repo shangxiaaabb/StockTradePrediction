@@ -9,6 +9,8 @@
 *.xml
 *.log
 *.pt
-saved_models/*
+*.pt.tar
+./gcn/saved_models/*
+saved_models/
 saved_models/scalar/*
 volume/*

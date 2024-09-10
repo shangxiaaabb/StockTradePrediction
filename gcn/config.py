@@ -20,18 +20,19 @@ class Config():
         self.print_freq = 1
 
         # train
-        self.epochs = 64
+        self.epochs = 128
         self.warm_up = 1
         self.batch_size = 32
 
         # optimizer
-        self.lr = 1e-6
+        # self.lr = 1e-3
+        self.lr = 1e-1
         self.power = 1.25
         self.grad_clip = dict(norm_type=2, max_norm=10)
 
         # dataset
-        self.pred_length = 24
-        self.train_length = 24*15
+        self.pred_length = 1
+        self.train_length = 1
 
         # model
         self.n_head = 4

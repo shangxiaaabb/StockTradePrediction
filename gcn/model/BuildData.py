@@ -3,11 +3,13 @@ Author: h-jie huangjie20011001@163.com
 Date: 2024-06-23 16:41:21
 '''
 import os
+import joblib
 import pandas as pd
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import StandardScaler
 
 class BuildData():
@@ -37,9 +39,11 @@ class BuildData():
 
         df = pd.read_csv(file_path)
         # 正则化处理
+        # scaler = MinMaxScaler()
         scaler = StandardScaler()
         for features in ['daily_volume', 'bin_volume', 'volatility','quote_imbalance']:
             df[features] = scaler.fit_transform(df[features].values.reshape(-1, 1))
+        joblib.dump(scaler, f"../data/volume/0308/Scaler/{os.path.split(file_path)[1][:6]}.m")
 
         df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
         df.set_index('date', inplace= True)
@@ -144,12 +148,11 @@ class BuildData():
         
         inputs_df = pd.DataFrame(columns= column_names)
         z = 0
-        #TODO: 检查这部分代码
         for t in range(5, m_data.shape[0]):
             for m in range(lag_bin+1, m_data.shape[1]):
-                # sub_matrix = m_data.iloc[(t- lag_day): t+1, (m- lag_bin): m+ 1]
                 sub_matrix = m_data.iloc[(t- lag_day)+1: t+ 1, (m- lag_bin): m+1]
                 row = []
+                # 将不同的时间节点数据放到bin-graph中
                 for i in range(0, lag_day):
                     row0 = sub_matrix.iloc[i, :].values
                     for j in range(0, lag_bin+ 1):
@@ -239,25 +242,31 @@ if __name__ == "__main__":
             'bin_num': 24,
             'file_dir': '../data/0308/0308-data/',
             'comment_dir': '../data/0308/0308-number/'}
-    # stock_info_list = tqdm(BuildData(conf= conf).get_files(), total= len(BuildData(conf= conf).get_files()))
-    # for i, stock_info in enumerate(stock_info_list):
+    stock_info_list = tqdm(BuildData(conf= conf).get_files(), total= len(BuildData(conf= conf).get_files()))
+    for i, stock_info in enumerate(stock_info_list):
 
-    #     if stock_info[:2] == '60':
-    #         file_path = f'{conf["file_dir"]}{stock_info}_XSHG_25_daily.csv'
-    #     else:
-    #         file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily.csv'
+        if stock_info[:2] == '60':
+            file_path = f'{conf["file_dir"]}{stock_info}_XSHG_25_daily.csv'
+        else:
+            file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily.csv'
 
-    #     comment_path = f'{conf["comment_dir"]}{stock_info}_comment_sentiment.csv'
-    #     # print(file_path)
+        comment_path = f'{conf["comment_dir"]}{stock_info}_comment_sentiment.csv'
+        # print(file_path)
 
-    #     if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
-    #         inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
-    #         BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)
-    #         # result = BuildData(conf= conf).genNewFeatureBinVolume(stock_info= stock_info, file_path= file_path, comment_path= comment_path)
-    #     stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
+        if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
+            inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
+            BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)
+            # result = BuildData(conf= conf).genNewFeatureBinVolume(stock_info= stock_info, file_path= file_path, comment_path= comment_path)
+        stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
 
     # test
-    input_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= '../data/0308/0308-data/000046_XSHE_25_daily.csv',
-                                                    comment_path= '../data/0308/0308-number/000046_comment_sentiment.csv',
-                                                    stock_info= None)
-    print(input_df.iloc[:5, :2])
+    # input_df, output_list, first_element = BuildData(conf= conf).gen_input_output_data(file_path= '../data/0308/0308-data/000046_XSHE_25_daily.csv',
+    #                                                 comment_path= '../data/0308/0308-number/000046_comment_sentiment.csv',
+    #                                                 stock_info= None)
+    # print(input_df.shape, len(first_element), len(first_element[0]))
+    # print(input_df.head())
+    # print(first_element[:5])
+    """
+    构建input_df没有问题，将df中node1-12作为训练数据，而后预测node0
+    数据结构应该为 batch_size node_num features
+    """
