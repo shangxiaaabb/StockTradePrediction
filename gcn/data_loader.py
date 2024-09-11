@@ -28,21 +28,18 @@ class StockDataset(Dataset):
         return len(self.input_data)- self.train_length- self.pred_length
     
     def _load_data(self):
-        # #BUG: 应该设置只对部分的变量进行预测
-        # input_data = np.load(self.input_path, allow_pickle= True)
-        # output_data = np.load(self.output_path, allow_pickle= True)
-
         self.output_data = self.output_data[:, self.pred_features]
         self.input_data = np.array([value[_] for item in self.input_data for value in item for _ in self.train_features], dtype= np.float32).reshape(self.input_data.shape[0], self.node_num, len(self.train_features))
         
     def __getitem__(self, index: int):
         time_begin = index
         time_end = time_begin+ self.train_length
-        return self.input_data[time_begin: time_end, :, :], self.output_data[time_end: time_end+ self.pred_length, :]
+        # return self.input_data[time_begin: time_end, :, :], self.output_data[time_end: time_end+ self.pred_length, :]
+        return self.input_data[index, :, :], self.output_data[index, :]
     
 if __name__ == "__main__":
     from config import Config
-    conf = Config()
+    
     input_path = './data/volume/0308/Input/000046_3_3_inputs.npy' 
     output_path = './data/volume/0308/Output/000046_3_3_output.npy'
     input_data = np.load(input_path, allow_pickle= True)
@@ -51,6 +48,7 @@ if __name__ == "__main__":
     input_train, input_test = input_data[:train_val_size], input_data[train_val_size:]
     output_train, output_test = output_data[:train_val_size], output_data[train_val_size:]
 
+    conf = Config(input_path)
     train_dataset = StockDataset(input_data= input_train, output_data= output_train, train_length= conf.train_length, pred_length= conf.pred_length,
                                  train_features= conf.train_features, pred_features= conf.pred_features)
     test_dataset = StockDataset(input_data= input_test, output_data= output_test, train_length= conf.train_length, pred_length= conf.pred_length, 
@@ -62,5 +60,5 @@ if __name__ == "__main__":
     for batch, (train, val) in enumerate(train_dataloader):
         if batch == 0:
             print(batch, train.shape, val.shape)
-            print(train, '\n', val)
+            # print(train, '\n', val)
             break

@@ -14,25 +14,19 @@ from sklearn.preprocessing import StandardScaler
 
 class BuildData():
 
-    def __init__(self,
-                 conf: dict,
-                 ) -> None:
+    def __init__(self, conf: dict) -> None:
         self.conf = conf
         self.file_dir = conf['file_dir']
         self.stocks_info = self.get_files()
         
-    def get_files(self,
-                  file_type: str= '.csv'):
+    def get_files(self, file_type: str= '.csv'):
         stocks_info = set()
         for files in os.listdir(self.file_dir):
             if '.csv' in files:
                 stocks_info.add(files[:6])
         return stocks_info
     
-    def df2matrix(self,
-                  file_path:str,
-                  col_name,
-                  bin_num: bool= True):
+    def df2matrix(self, file_path:str, col_name,  bin_num: bool= True):
         """
         转换数据结构，以date为横坐标，制定col_name为纵坐标
         """
@@ -72,10 +66,7 @@ class BuildData():
         data.sort_index(inplace=True)
         return data
 
-    def genNewFeatureBinVolume(self,
-                               stock_info: str,
-                               file_path: str,
-                               comment_path: str):
+    def genNewFeatureBinVolume(self, stock_info: str, file_path: str, comment_path: str):
         lag_day, lag_bin, lag_week = self.conf['lag_day'], self.conf['lag_bin'], self.conf['lag_week']
         mdata = self.df2matrix(file_path= file_path, col_name= 'bin_volume')
         result = pd.DataFrame(index= mdata.index,
@@ -130,10 +121,7 @@ class BuildData():
             result.to_csv(f'../data/volume/0308/Features/{stock_info}_25_daily_f_all.csv')
         return result
 
-    def gen_input_output_data(self, 
-                              file_path: str,
-                              comment_path: str,
-                              stock_info: str):
+    def gen_input_output_data(self, file_path: str, comment_path: str, stock_info: str):
         """
         生成不同节点数据
         """
@@ -243,22 +231,19 @@ if __name__ == "__main__":
             'file_dir': '../data/0308/0308-data/',
             'comment_dir': '../data/0308/0308-number/'}
     stock_info_list = tqdm(BuildData(conf= conf).get_files(), total= len(BuildData(conf= conf).get_files()))
+    i= 0
     for i, stock_info in enumerate(stock_info_list):
-
         if stock_info[:2] == '60':
             file_path = f'{conf["file_dir"]}{stock_info}_XSHG_25_daily.csv'
         else:
             file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily.csv'
 
         comment_path = f'{conf["comment_dir"]}{stock_info}_comment_sentiment.csv'
-        # print(file_path)
-
-        if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
-            inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
-            BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)
-            # result = BuildData(conf= conf).genNewFeatureBinVolume(stock_info= stock_info, file_path= file_path, comment_path= comment_path)
-        stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
-
+        print(file_path, comment_path)
+        # if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
+            # inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
+            # BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)
+        # stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
     # test
     # input_df, output_list, first_element = BuildData(conf= conf).gen_input_output_data(file_path= '../data/0308/0308-data/000046_XSHE_25_daily.csv',
     #                                                 comment_path= '../data/0308/0308-number/000046_comment_sentiment.csv',

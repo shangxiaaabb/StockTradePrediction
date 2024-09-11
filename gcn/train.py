@@ -13,14 +13,7 @@ from util import logger_init, Stats
 from config import Config
 from data_loader import StockDataset
 
-conf = Config()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-logger = logger_init('train', conf.log_file)
-writer = SummaryWriter(conf.scalar)
-
-# def com_mape(y_true, y_pred):
-#     mape = torch.mean(torch.abs(y_true[:, :, :]- y_pred[:, :, :])/ y_true[:, :, :])*100
-#     return mape
 
 def decay_lr_poly(base_lr, epoch_i, batch_i, total_epochs, total_batches, warm_up, power=1.0):
     if warm_up > 0 and epoch_i < warm_up:
@@ -56,10 +49,6 @@ def train(train_loader, model, criterion, epoch, optimizer):
     # batch stats
     batch_total_time = Stats('Time')
     batch_data_time = Stats('Data')
-    # batch_losses = Stats('Loss')
-    # epoch_losses = Stats('Loss')
-    # batch_mape = Stats('MAPE')
-    # epoch_mape = Stats('MAPE')
 
     model.train()
     batches = len(train_loader)
@@ -76,15 +65,6 @@ def train(train_loader, model, criterion, epoch, optimizer):
         input_data, output_data = input_data.to(device, non_blocking= True), output_data.to(device, non_blocking= True).float()
         predicts = model(input_data, build_adj())
         loss = criterion(predicts, output_data)
-
-        # recore mape
-        # with torch.no_grad():
-        #     batch_mape.update_by_avg(com_mape(output_data, predicts), cnt= 1)
-        #     epoch_mape.update_by_avg(com_mape(output_data, predicts), cnt= 1)
-
-        # record loss
-        # epoch_losses.update_by_avg(loss.item(), input_data.shape[0])
-        # batch_losses.update_by_avg(loss.item(), input_data.shape[0])
 
         # measure elapsed time
         batch_total_time.update_by_sum(time.time()- end, 1)
@@ -118,8 +98,6 @@ def train(train_loader, model, criterion, epoch, optimizer):
 
     # log print (epoch)
     logger.info('-' * 97 + 'train' + '-' * 98)
-    # logger.info('EPOCH[{}/{}] LOSS[{:.6f}]'.format(
-    #     epoch + 1, conf.epochs, losses/batches))
     logger.info('EPOCH [{}/{}] LOSS [{:.6f}]'.format(
         epoch + 1, conf.epochs, losses/ batches))
     
@@ -128,13 +106,13 @@ def train(train_loader, model, criterion, epoch, optimizer):
     # visualize train (epoch)
     writer.add_scalar('train-epoch/Loss', losses/ batches, epoch + 1)
 
-def val(val_loader, model, criterion, epoch):
-    losses = 0.0
+    return losses/batches
 
+def val(val_loader, model, criterion, epoch):
     # switch to evaluate mode
     model.eval()
 
-    batches = len(val_loader)
+    batches, losses = len(val_loader), 0.0
     with torch.no_grad():
         with tqdm(total=batches) as pbar:
             for batch_i, (input_data, output_data) in enumerate(val_loader):
@@ -168,7 +146,7 @@ def main(input_path, output_path):
                                 train_features= conf.train_features, pred_features= conf.pred_features)
     
     train_dataloader = DataLoader(train_dataset, batch_size= conf.batch_size, shuffle= False, drop_last=True)
-    test_dataloader = DataLoader(test_dataset, conf.batch_size, shuffle= False, drop_last= True)
+    test_dataloader = DataLoader(test_dataset, batch_size= conf.batch_size, shuffle= False, drop_last= True)
 
     # laod model
     model = GAT(n_feat= len(conf.train_features), n_hid= conf.n_hid, out_features= len(conf.pred_features), 
@@ -177,10 +155,11 @@ def main(input_path, output_path):
     criterion = nn.L1Loss().to(device)
     optimizer = optim.Adam(model.parameters(), lr= conf.lr)
 
-    best_loss, best_epoch = 100.0, 0
+    best_loss, best_epoch, train_loss = 100.0, 0, 100.0
+    best_train_epoch = 0.0, 0.0
     for epoch in range(conf.epochs):
         logger.info('Epoch-{} Training...'.format(epoch + 1))
-        train(train_loader= train_dataloader, model= model, criterion= criterion, optimizer= optimizer, epoch= epoch)
+        loss = train(train_loader= train_dataloader, model= model, criterion= criterion, optimizer= optimizer, epoch= epoch)
         
         logger.info('Epoch-{} Evaluating...'.format(epoch + 1))
         val_loss = val(test_dataloader, model, criterion, epoch)
@@ -194,22 +173,35 @@ def main(input_path, output_path):
             logger.info('*' * 98 + 'best' + '*' * 98)
             logger.info('Best Model: Epoch[{}]:{}'.format(epoch + 1, best_loss))
             logger.info('*' * 200)
-            torch.save(model.state_dict(), os.path.join(conf.save_dir, 'model_best.pt'))
+            torch.save(model.state_dict(), os.path.join(conf.save_dir, f'{os.path.split(input_path)[1][:6]}_model_test_best.pt'))
         else:
             logger.info('Latest Model: Epoch[{}]:{}'.format(epoch + 1, val_loss))
             logger.info('(Best Current: Epoch[{}]:{})'.format(best_epoch, best_loss))
 
-        torch.save(model.state_dict(), os.path.join(conf.save_dir, 'model_latest.pt'))
-        if (epoch + 1) % conf.save_freq == 0:
-            torch.save(model.state_dict(), os.path.join(conf.save_dir, 'model_epoch_{}.pt'.format(epoch + 1)))
+        if train_loss >= loss:
+            train_loss = loss
+            best_train_epoch = epoch
+            torch.save(model.state_dict(), os.path.join(conf.save_dir, f'{os.path.split(input_path)[1][:6]}_{best_train_epoch}_model_train_best.pt'))
             torch.save({
                 'epoch': epoch + 1,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'criterion_state_dict': criterion.state_dict(),
-            }, os.path.join(conf.save_dir, 'model_epoch_{}.pt.tar'.format(epoch + 1)))
+            }, os.path.join(conf.save_dir, f'{os.path.split(input_path)[1][:6]}_{best_train_epoch}_model_train_best.pt.tar'))
+
+    logger.info(f"The {os.path.split(input_path)[1][:6]}:")
+    logger.info(f"The best train model epoch is {best_train_epoch}, the loss value is {train_loss}")
+    logger.info(f"The best test model epoch is {best_epoch}, the loss value is {best_loss}")
 
 if __name__ == "__main__":
-    input_path = './data/volume/0308/Input/000753_3_3_inputs.npy'
-    output_path = './data/volume/0308/Output/000753_3_3_output.npy'
-    main(input_path= input_path, output_path= output_path)
+    input_dir, output_dir = './data/volume/0308/Input/', './data/volume/0308/Output/'
+    input_dir_list, output_dir_list = sorted(os.listdir(input_dir)), sorted(os.listdir(output_dir))
+    for input_path, output_path in zip(input_dir_list, output_dir_list):
+        input_path = os.path.join(input_dir, input_path)
+        output_path = os.path.join(output_dir, output_path)
+        conf = Config(input_path)
+        
+        log_file = os.path.join(conf.save_dir, f"{os.path.split(input_path)[1][:6]}.log")
+        logger = logger_init(f'{os.path.split(input_path)[1][:6]}-train', log_file)
+        writer = SummaryWriter(conf.scalar)
+        main(input_path= input_path, output_path= output_path)

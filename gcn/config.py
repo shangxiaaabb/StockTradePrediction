@@ -5,22 +5,22 @@ Date: 2024-07-27 21:15:33
 import os
 
 class Config():
-    def __init__(self):
+    def __init__(self, input_path):
         # save
-        self.save_dir = './saved_models/'
+        self.save_dir = f'./saved_models/{os.path.split(input_path)[1][:6]}'
         if not os.path.exists(self.save_dir):
             os.mkdir(self.save_dir)
         self.save_freq = 1
 
         # log
-        self.log_file = os.path.join(self.save_dir, 'train.log')
+        # self.log_file = os.path.join(self.save_dir, 'train.log')
         self.scalar = os.path.join(self.save_dir, 'scalar')
         if not os.path.exists(self.scalar):
             os.mkdir(self.scalar)
         self.print_freq = 1
 
         # train
-        self.epochs = 128
+        self.epochs = 64
         self.warm_up = 1
         self.batch_size = 32
 
