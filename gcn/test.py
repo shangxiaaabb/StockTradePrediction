@@ -67,6 +67,7 @@ if __name__ == "__main__":
     
     pbar = tqdm(total=len(os.listdir(pt_dir)), desc="Processing models")
     for path in os.listdir(pt_dir):
+        pbar.update(1)
         df = pd.DataFrame()
         pt_path = os.path.join(pt_dir, path, f'{path}_model_train_best.pt')
         input_path = os.path.join('./data/volume/0308/Input', f'{path}_3_3_inputs.npy')
@@ -81,5 +82,4 @@ if __name__ == "__main__":
         df[f"{path}-true"] = y_true
 
         # 更新进度条
-        pbar.update(1)
         df.to_csv(f'./pred/model_pred_{path}.csv', encoding= 'utf-8', index= None)
