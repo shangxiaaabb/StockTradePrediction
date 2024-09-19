@@ -60,5 +60,5 @@ if __name__ == "__main__":
     for batch, (train, val) in enumerate(train_dataloader):
         if batch == 0:
             print(batch, train.shape, val.shape)
-            # print(train, '\n', val)
+            print(train, '\n', val)
             break

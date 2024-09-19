@@ -8,9 +8,9 @@
 *.npy
 *.xml
 *.log
-*.pt
-*.pt.tar
-./gcn/saved_models/*
-saved_models/
-saved_models/scalar/*
+# *.pt
+# *.pt.tar
+# ./gcn/saved_models/*
+# saved_models/
+# saved_models/scalar/*
 volume/*

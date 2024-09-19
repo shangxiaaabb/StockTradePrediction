@@ -6,7 +6,7 @@ import os
 import torch.nn as nn
 
 class Config():
-    def __init__(self, input_path, batch_size, lr, criterion):
+    def __init__(self, input_path, batch_size= 32, lr= 0.01, criterion= None):
         # train
         self.epochs = 64
         self.warm_up = 1
