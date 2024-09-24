@@ -14,3 +14,4 @@
 # saved_models/
 # saved_models/scalar/*
 volume/*
+gcn/stockData/*
