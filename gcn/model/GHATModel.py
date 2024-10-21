@@ -143,18 +143,6 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #     # print(out.shape) # 32 7 9 batch_size pred_length out_features
 #     print(f'输入数据形状：{x.shape}, 输出数据形状：{out.shape}')
 
-'''
-Author: h-jie huangjie20011001@163.com
-Date: 2024-06-23 16:19:53
-'''
-import select
-import torch
-from torch import Tensor, dropout
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class GraphAttentionLayer(nn.Module):
     def __init__(self, in_features, out_features, dropout= 0.5, alpha= 0.2, concat= True, device= device, *args, **kwargs) -> None:
