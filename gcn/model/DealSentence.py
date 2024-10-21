@@ -185,8 +185,7 @@ class SentimentAnalysis:
         df_number = pd.DataFrame(index= df.index,
                                  columns= df.columns)
         store_path = comment_path.replace('.csv', '_sentiment.csv').replace('/0308-comment/', '/0308-number/')
-        # tqdm_day = tqdm(total= df.shape[0])
-        # df_columns = list(df.columns)
+        
         with open(f'../data/{comment_path[26: len(comment_path)-4]}.txt', 'a+', encoding= 'utf-8') as f:
             f.write(comment_path+ '\n')
             for row in range(df.shape[0]):
@@ -263,7 +262,7 @@ if __name__ == '__main__':
 
     path_dir = '../data/0308/0308-comment/'
     for path in os.listdir(path_dir):
-        if '300133' in path or '300174' in path or '300263' in path:
+        if '300343' in path or '300433' in path or '300540' in path or '600622' in path or '603053' in path or '603095' in path or '603359' in path:
             print(path)
             SentimentAnalysis.main(comment_path= os.path.join(path_dir, path))
             time_end = time.time()

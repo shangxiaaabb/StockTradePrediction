@@ -6,6 +6,12 @@
 *.pt
 *.h5
 *.npy
-volume/*
+*.xml
 *.log
-stockData/
+# *.pt
+# *.pt.tar
+# ./gcn/saved_models/*
+# saved_models/
+# saved_models/scalar/*
+volume/*
+gcn/stockData/*

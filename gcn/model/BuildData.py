@@ -2,50 +2,53 @@
 Author: h-jie huangjie20011001@163.com
 Date: 2024-06-23 16:41:21
 '''
-
+import os
+import joblib
 import pandas as pd
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
-import os
 from tqdm import tqdm
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 
 class BuildData():
 
-    def __init__(self,
-                 conf: dict,
-                 ) -> None:
+    def __init__(self, conf: dict) -> None:
         self.conf = conf
         self.file_dir = conf['file_dir']
         self.stocks_info = self.get_files()
         
-
-    def get_files(self,
-                  file_type: str= '.csv'):
+    def get_files(self, file_type: str= '.csv'):
         stocks_info = set()
         for files in os.listdir(self.file_dir):
             if '.csv' in files:
                 stocks_info.add(files[:6])
         return stocks_info
     
-    def df2matrix(self,
-                  file_path:str,
-                  col_name,
-                  bin_num: bool= True):
+    def df2matrix(self, file_path:str, col_name,  bin_num: bool= True):
         """
         转换数据结构，以date为横坐标，制定col_name为纵坐标
         """
 
         df = pd.read_csv(file_path)
+        # 正则化处理
+        # scaler = MinMaxScaler()
+        scaler = StandardScaler()
+        for features in ['daily_volume', 'bin_volume', 'volatility','quote_imbalance']:
+            df[features] = scaler.fit_transform(df[features].values.reshape(-1, 1))
+        joblib.dump(scaler, f"../data/volume/0308/Scaler/{os.path.split(file_path)[1][:6]}.m")
+
         df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
         df.set_index('date', inplace= True)
         df.sort_index(inplace= True)
         n, k = df.shape[0], 25
-        # TODO: 1、把 bin0 分离出来，而后补充到特征里面去，也就是需要在  self.genNewFeatureBinVolume() 把bin0 特征融合进来
+
         if bin_num:
             data = pd.DataFrame(np.array(df[col_name]).reshape(int(n/k), k),
                                 columns= ['bin{}'.format(i) for i in range(k)]).drop('bin0', axis=1)
         else:
+            # build bin0 as a feature
             bin0_list, mean_col_name = [], np.mean(df[col_name])
             for i in range(0, df.shape[0], 25):
                 if df[col_name].iloc[i- 25] == 0:
@@ -62,19 +65,14 @@ class BuildData():
         data.set_index('date', inplace= True)
         data.sort_index(inplace=True)
         return data
-    
-    def deal_bin0(self):
-        pass
 
-    def genNewFeatureBinVolume(self,
-                               stock_info: str,
-                               file_path: str,
-                               comment_path: str):
+    def genNewFeatureBinVolume(self, stock_info: str, file_path: str, comment_path: str):
         lag_day, lag_bin, lag_week = self.conf['lag_day'], self.conf['lag_bin'], self.conf['lag_week']
         mdata = self.df2matrix(file_path= file_path, col_name= 'bin_volume')
         result = pd.DataFrame(index= mdata.index,
                               columns= mdata.columns)
-
+        
+        #BUG: 补充数据正则化操作
         f0 = self.df2matrix(file_path, 'bin_volume', bin_num= False)
         f1 = mdata # 每个交易日的成交量
         f2 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 累计成交量
@@ -83,7 +81,7 @@ class BuildData():
         f5 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 前一周成交量
         f6 = self.df2matrix(file_path, 'volatility')  # 价格波动性
         f7 = self.df2matrix(file_path,'quote_imbalance') # 报价不平衡率
-        f8 = pd.read_csv(comment_path, index_col= 'Unnamed: 0')
+        f8 = pd.read_csv(comment_path, index_col= 'Unnamed: 0') # comment
 
         try:
             f0 = (f0.values+ f8['bin0'].values.reshape(f0.shape[0], 1)) # 直接将bin0的评论 和 f0的所有特征相加
@@ -98,14 +96,16 @@ class BuildData():
 
                 if m < lag_bin -1:
                     bin_volume = mdata.iloc[t, :m+1] 
-                    f3.iloc[t, m] = np.sum(bin_volume)/3
+                    f3.iloc[t, m] = np.mean(bin_volume)
+                    # f3.iloc[t, m] = np.sum(bin_volume)/3
                 else:
                     bin_volume = mdata.iloc[t, m- lag_bin+1: m+1]
                     f3.iloc[t, m] = np.sum(bin_volume)/ 3
 
                 if t < lag_day- 1:
                     pro_volume = mdata.iloc[:t+1, m]/ daily_volume[:t+1]
-                    f4.iloc[t, m] = np.sum(pro_volume)/3
+                    f4.iloc[t, m] = np.mean(pro_volume)
+                    # f4.iloc[t, m] = np.sum(pro_volume)/3
                 else:
                     pro_volume = mdata.iloc[t- lag_bin+ 1: t+ 1, m]/ daily_volume[t- lag_bin+ 1: t+ 1]
                     f4.iloc[t, m] = np.sum(pro_volume)/3
@@ -117,17 +117,15 @@ class BuildData():
                 f_all = [f0[t, m], f1.iloc[t, m], f2.iloc[t, m], f3.iloc[t, m],
                          f4.iloc[t, m], f5.iloc[t, m], f6.iloc[t, m], f7.iloc[t, m], f8.iloc[t, m]]
                 result.iloc[t, m] = [float('{:.4f}'.format(i)) for i in f_all]
-        # result.to_csv(f'./data/volume/0308/{stock_info}_25_daily_f_all.csv')
+        if stock_info != None:
+            result.to_csv(f'../data/volume/0308/Features/{stock_info}_25_daily_f_all.csv')
         return result
 
-    def gen_input_output_data(self, 
-                              file_path: str,
-                              comment_path: str,
-                              stock_info: str):
+    def gen_input_output_data(self, file_path: str, comment_path: str, stock_info: str):
         """
         生成不同节点数据
         """
-        lag_day, lag_bin, lag_week = self.conf['lag_day'], self.conf['lag_bin'], self.conf['lag_week']
+        lag_day, lag_bin, lag_week = self.conf['lag_day'], self.conf['lag_bin'], self.conf['lag_week'] # 3 3 
         m_data = self.genNewFeatureBinVolume(stock_info= stock_info,
                                              file_path= file_path,
                                              comment_path= comment_path)
@@ -138,16 +136,16 @@ class BuildData():
         
         inputs_df = pd.DataFrame(columns= column_names)
         z = 0
-        for t in range(7, m_data.shape[0]):
-            for m in range(lag_bin, m_data.shape[1]):
-                # sub_matrix = m_data.iloc[(t- lag_day): t+1, (m- lag_bin): m+ 1]
+        for t in range(5, m_data.shape[0]):
+            for m in range(lag_bin+1, m_data.shape[1]):
                 sub_matrix = m_data.iloc[(t- lag_day)+1: t+ 1, (m- lag_bin): m+1]
                 row = []
+                # 将不同的时间节点数据放到bin-graph中
                 for i in range(0, lag_day):
                     row0 = sub_matrix.iloc[i, :].values
                     for j in range(0, lag_bin+ 1):
                         row.append(row0[j])
-                node0, node1 = row.pop(), m_data.iloc[t-7, m]
+                node0, node1 = row.pop(), m_data.iloc[t-5, m]
                 row.insert(0, node0)
                 row.insert(1, node1)
                 inputs_df.loc[z] = row
@@ -160,8 +158,9 @@ class BuildData():
         output_list = [element for sublist in first_elements for element in sublist]
         input_matrix = inputs_df.values
 
-        np.save(f'../data/volume/0308/Input/{stock_info}_{lag_bin}_{lag_day}_inputs.npy', input_matrix)
-        np.save(f'../data/volume/0308/Output/{stock_info}_{lag_bin}_{lag_day}_output.npy', output_list)
+        if stock_info != None:
+            np.save(f'../data/volume/0308/Input/{stock_info}_{lag_bin}_{lag_day}_inputs.npy', input_matrix)
+            np.save(f'../data/volume/0308/Output/{stock_info}_{lag_bin}_{lag_day}_output.npy', output_list)
 
         return inputs_df, output_list
     
@@ -231,15 +230,28 @@ if __name__ == "__main__":
             'bin_num': 24,
             'file_dir': '../data/0308/0308-data/',
             'comment_dir': '../data/0308/0308-number/'}
-
     stock_info_list = tqdm(BuildData(conf= conf).get_files(), total= len(BuildData(conf= conf).get_files()))
+    i= 0
     for i, stock_info in enumerate(stock_info_list):
-        file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily.csv'
-        comment_path = f'{conf["comment_dir"]}{stock_info}_comment_sentiment.csv'
-        
-        if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
-            inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
-            BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)
+        if stock_info[:2] == '60':
+            file_path = f'{conf["file_dir"]}{stock_info}_XSHG_25_daily.csv'
+        else:
+            file_path = f'{conf["file_dir"]}{stock_info}_XSHE_25_daily.csv'
 
-            # result = BuildData(conf= conf).genNewFeatureBinVolume(stock_info= stock_info, file_path= file_path, comment_path= comment_path)
-        stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
+        comment_path = f'{conf["comment_dir"]}{stock_info}_comment_sentiment.csv'
+        print(file_path, comment_path)
+        # if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
+            # inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
+            # BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)
+        # stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
+    # test
+    # input_df, output_list, first_element = BuildData(conf= conf).gen_input_output_data(file_path= '../data/0308/0308-data/000046_XSHE_25_daily.csv',
+    #                                                 comment_path= '../data/0308/0308-number/000046_comment_sentiment.csv',
+    #                                                 stock_info= None)
+    # print(input_df.shape, len(first_element), len(first_element[0]))
+    # print(input_df.head())
+    # print(first_element[:5])
+    """
+    构建input_df没有问题，将df中node1-12作为训练数据，而后预测node0
+    数据结构应该为 batch_size node_num features
+    """
