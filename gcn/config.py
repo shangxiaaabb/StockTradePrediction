@@ -27,7 +27,7 @@ class Config():
         self.train_length = 1
 
         # model
-        self.n_head = 4
+        self.n_head = 8
         self.n_hid = 16
 
         # save

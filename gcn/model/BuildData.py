@@ -72,8 +72,6 @@ class BuildData():
         result = pd.DataFrame(index= mdata.index,
                               columns= mdata.columns)
         
-        #BUG: 补充数据正则化操作
-        f0 = self.df2matrix(file_path, 'bin_volume', bin_num= False)
         f1 = mdata # 每个交易日的成交量
         f2 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 累计成交量
         f3 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 平均成交量
@@ -81,13 +79,16 @@ class BuildData():
         f5 = pd.DataFrame(index=mdata.index, columns=mdata.columns) # 前一周成交量
         f6 = self.df2matrix(file_path, 'volatility')  # 价格波动性
         f7 = self.df2matrix(file_path,'quote_imbalance') # 报价不平衡率
-        f8 = pd.read_csv(comment_path, index_col= 'Unnamed: 0') # comment
 
-        try:
-            f0 = (f0.values+ f8['bin0'].values.reshape(f0.shape[0], 1)) # 直接将bin0的评论 和 f0的所有特征相加
-        except ValueError:
-            print(f8['bin0'].values.shape, f0.shape, stock_info)
-        f8 = f8.iloc[:, 1:]
+        # #MARK: 不用f0 f8特征保留最开始的论文操作
+        # f0 = self.df2matrix(file_path, 'bin_volume', bin_num= False)
+        # f8 = pd.read_csv(comment_path, index_col= 'Unnamed: 0') # comment
+
+        # try:
+        #     f0 = (f0.values+ f8['bin0'].values.reshape(f0.shape[0], 1)) # 直接将bin0的评论 和 f0的所有特征相加
+        # except ValueError:
+        #     print(f8['bin0'].values.shape, f0.shape, stock_info)
+        # f8 = f8.iloc[:, 1:]
 
         daily_volume = mdata.apply(lambda x: x.sum(), axis= 1) # 计算一天总容量
         for t in range(mdata.shape[0]):
@@ -114,8 +115,12 @@ class BuildData():
                     f5.iloc[t, m] = mdata.iloc[0, m]
                 else:
                     f5.iloc[t, m] = mdata.iloc[t- 5, m]
-                f_all = [f0[t, m], f1.iloc[t, m], f2.iloc[t, m], f3.iloc[t, m],
-                         f4.iloc[t, m], f5.iloc[t, m], f6.iloc[t, m], f7.iloc[t, m], f8.iloc[t, m]]
+                
+                f_all = [f1.iloc[t, m], f2.iloc[t, m], f3.iloc[t, m],
+                         f4.iloc[t, m], f5.iloc[t, m], f6.iloc[t, m], f7.iloc[t, m]]
+                
+                # f_all = [f0[t, m], f1.iloc[t, m], f2.iloc[t, m], f3.iloc[t, m],
+                #          f4.iloc[t, m], f5.iloc[t, m], f6.iloc[t, m], f7.iloc[t, m], f8.iloc[t, m]]
                 result.iloc[t, m] = [float('{:.4f}'.format(i)) for i in f_all]
         if stock_info != None:
             result.to_csv(f'../data/volume/0308/Features/{stock_info}_25_daily_f_all.csv')
@@ -240,10 +245,11 @@ if __name__ == "__main__":
 
         comment_path = f'{conf["comment_dir"]}{stock_info}_comment_sentiment.csv'
         print(file_path, comment_path)
-        # if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
-            # inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
-            # BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)
-        # stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
+        if os.path.exists(file_path) and os.path.exists(comment_path) and '002679' not in file_path:
+            inputs_df, output_list = BuildData(conf= conf).gen_input_output_data(file_path= file_path, stock_info= stock_info, comment_path= comment_path)
+            BuildData(conf= conf).gen_station_coords_leftup(stock_info= stock_info)
+        stock_info_list.set_postfix(now_file = stock_info, total = len(stock_info_list))
+
     # test
     # input_df, output_list, first_element = BuildData(conf= conf).gen_input_output_data(file_path= '../data/0308/0308-data/000046_XSHE_25_daily.csv',
     #                                                 comment_path= '../data/0308/0308-number/000046_comment_sentiment.csv',
@@ -251,7 +257,3 @@ if __name__ == "__main__":
     # print(input_df.shape, len(first_element), len(first_element[0]))
     # print(input_df.head())
     # print(first_element[:5])
-    """
-    构建input_df没有问题，将df中node1-12作为训练数据，而后预测node0
-    数据结构应该为 batch_size node_num features
-    """
