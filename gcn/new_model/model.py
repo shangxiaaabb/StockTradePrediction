@@ -165,15 +165,18 @@ if __name__ == "__main__":
         return torch.tensor(adj_matrix)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    x = torch.rand(size= (3840, 13, 9)).to(device= device) # batch_size time_length node_num features
+    x = torch.rand(size= (32, 13, 9)).to(device= device) # batch_size time_length node_num features
     adj_matrix = _gen_adj_matrix().to(device)
     
     start_time = time.time()
     model = GAT(out_features= 1).to(device= device) # n_class 代表未来预测的日期
     out = model(x, adj_matrix)
+    print(f'device: {device}')
     print(f"model use time {time.time()- start_time}")
     print(f'输入数据形状：{x.shape}, 输出数据形状：{out.shape}')
 
+    # new model test
+    gnn_x, lstm_x = (32, 6, 9), ()
     model = Model(node_num= 13).to(device)
     out = model(x, x, adj_matrix)
     print(out.shape)
