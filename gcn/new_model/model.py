@@ -9,6 +9,26 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+#BUG: 补充一点,因为对数据进行了填充,如何将填充的数据找到并且踢掉
+"""
+尝试操作
+1.可以根据数据的个数以及图结构,通过networkx操作?
+# 生成邻接矩阵
+time_length = 6
+bin_length = 2
+direct = True  # 设置为 True 表示有向图，设置为 False 表示无向图
+adj_matrix = gen_adjmatrix(time_length, bin_length, direct)
+
+# 假设我们有一个 24x6 的特征矩阵
+np.random.seed(0)  # 为了可重复性
+features =gnn_data[1][-12:]
+
+2.直接将0数据剔除掉,那么就会只有为剔除数据,然后根据数据个数定义邻接矩阵然后
+计算
+1>数据布局格式为:24x7,将数据分6块,没块都是4份然后从左到右进行排序的数据结构
+2>对于填充满的数据数据格式则是按照从上到下6个数据(>=3的时候数据就满足上面布局)
+"""
+
 class GraphAttentionLayer(nn.Module):
     def __init__(self, in_features: int, out_features: int, N: int, dropout= 0.5, device= None) -> None:
         super(GraphAttentionLayer, self).__init__()
@@ -54,10 +74,13 @@ class GraphAttentionLayer(nn.Module):
 
         # con attention score
         attention = self.com_attention(h, adj, connect_way= 'sum')
+        # print(f'Attention {attention.shape}')
         h_prime = torch.matmul(attention, h)
+        # print(h_prime.shape)
         return self.leakyrelu(h_prime)
- 
+
 class GAT(nn.Module):
+    
     def __init__(self, in_features: int=9, n_hid: int= 18, out_features: int= 8, dropout:float=0.3, n_heads: int=2, node_num: int= 13) -> None:
         """
         in_features: 输入数据特征数量
@@ -167,16 +190,6 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     x = torch.rand(size= (32, 13, 9)).to(device= device) # batch_size time_length node_num features
     adj_matrix = _gen_adj_matrix().to(device)
-    
-    start_time = time.time()
-    model = GAT(out_features= 1).to(device= device) # n_class 代表未来预测的日期
-    out = model(x, adj_matrix)
-    print(f'device: {device}')
-    print(f"model use time {time.time()- start_time}")
-    print(f'输入数据形状：{x.shape}, 输出数据形状：{out.shape}')
-
-    # new model test
-    gnn_x, lstm_x = (32, 6, 9), ()
     model = Model(node_num= 13).to(device)
     out = model(x, x, adj_matrix)
     print(out.shape)
