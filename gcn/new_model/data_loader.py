@@ -97,4 +97,3 @@ if __name__ == "__main__":
         if batch == 0:
             print(data_gnn.shape, data_lstm.shape, data_target.shape)
             break
-    

@@ -2,7 +2,7 @@
 Author: h-jie huangjie20011001@163.com
 Date: 2024-06-23 16:19:53
 '''
-from turtle import forward
+from utils import gen_adjmatrix
 import torch
 from torch import Tensor
 import torch.nn as nn
@@ -136,7 +136,13 @@ class LSTM(nn.Module):
 
 class Model(nn.Module):
     
-    def __init__(self, node_num: int, n_hid: int=16, n_heads: int=8, num_layers: int= 8, out_features: int= 1, dropout: float= 0.3):
+    def __init__(self, 
+                 node_num: int, 
+                 n_hid: int=16, 
+                 n_heads: int=8, 
+                 num_layers: int= 8, 
+                 out_features: int= 1, 
+                 dropout: float= 0.3):
         super(Model, self).__init__()
         self.dropout= dropout
         self.out_features = out_features
@@ -155,6 +161,7 @@ class Model(nn.Module):
         return self.out(out)
     
     def forward(self, x1:Tensor, x2:Tensor, adj: Tensor, h0= None, c0=None):
+        #BUG: 输出所有的未填充数据,然后根据未填充数据数量构建邻接矩阵
         out_gat = self.gat_model(x1, adj)
         out_lstm, _ = self.lstm_model(x2)
         out = torch.cat((out_gat, out_lstm), dim= -1)
