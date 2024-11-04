@@ -6,20 +6,15 @@ import os
 import torch.nn as nn
 
 class Config():
-    def __init__(self, input_path, batch_size= 32, lr= 0.01, criterion= None):
+    def __init__(self, stock_number=None):
         # train
         self.epochs = 64
-        self.warm_up = 1
-        self.batch_size = batch_size
-        # self.batch_size = 32
+        self.warm_up = 2
+        self.batch_size = 8
 
         # optimizer
-        self.lr = lr
-        # self.lr = 2e-1 # 1e-1
-        # self.criterion = nn.L1Loss()
-        self.criterion = criterion
-        self.criterion_name = type(self.criterion).__name__
-        self.power = 1.25
+        self.lr = 0.006
+        self.power = 1
         self.grad_clip = dict(norm_type=2, max_norm=10)
         
         # dataset
@@ -27,18 +22,24 @@ class Config():
         self.train_length = 1
 
         # model
-        self.n_head = 8
-        self.n_hid = 16
+        self.in_features= 7
+        self.out_features= 1
+        self.embed_dim= 7
+        self.ff_dim= 16
+        self.n_heads = 4
+        self.n_layers = 4
+        self.n_nodes= 24
 
         # save
-        self.save_dir = f'./save_models/saved_models-{self.batch_size}-{self.lr}-{self.criterion_name}/{os.path.split(input_path)[1][:6]}'
+        self.save_dir = f'./saved_models/{stock_number}' if stock_number else './saved_models/'
         os.makedirs(self.save_dir, exist_ok=True)
-        self.save_freq = 1
 
-        # log
-        # self.log_file = os.path.join(self.save_dir, 'train.log')
         self.scalar = os.path.join(self.save_dir, 'scalar')
         os.makedirs(self.scalar, exist_ok=True)
+
+        self.log_file = os.path.join(self.scalar, f'train-{stock_number}.log' if stock_number else 'train.log')
+        self.save_freq = 1
+        # log
         self.print_freq = 1
 
         # features select

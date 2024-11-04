@@ -15,3 +15,5 @@
 # saved_models/scalar/*
 volume/*
 gcn/stockData/*
+*.pt
+*.pt.tar
