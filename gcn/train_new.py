@@ -61,7 +61,7 @@ def train(train_loader, model, criterion, epoch, optimizer):
         adj_matrix = gen_adjmatrix()
         adj_matrix = torch.from_numpy(adj_matrix).to(device)
 
-        predicts = model(data_lstm, data_gnn, adj_matrix)
+        predicts =  model(data_lstm, data_gnn, adj_matrix)
         loss = criterion(predicts, data_target)
 
         # measure elapsed time
@@ -192,17 +192,20 @@ if __name__ == '__main__':
     data_root = './data/volume/0308/Features/'
     i = 0
     for path in os.listdir(data_root):
-        data_path = os.path.join(data_root, path)
-        stock_number = re.match(r'^(\d+)', path).group(1)
-        config = Config(stock_number)
-        logger = logger_init(f'train-{stock_number}', config.log_file)
-        writer = SummaryWriter(config.scalar)
-        if i <= 5:
+        if '000046' in path:
+            data_path = os.path.join(data_root, path)
+            stock_number = re.match(r'^(\d+)', path).group(1)
+            config = Config(stock_number)
+            logger = logger_init(f'train-{stock_number}', config.log_file)
+            writer = SummaryWriter(config.scalar)
             main(data_path)
-            try:
-                main(data_path)
-                i +=1
-            except Exception:
-                i +=1
-                continue
+            break
+        # if i <= 5:
+        #     main(data_path)
+        #     try:
+        #         main(data_path)
+        #         i +=1
+        #     except Exception:
+        #         i +=1
+        #         continue
 

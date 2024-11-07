@@ -152,8 +152,7 @@ class PredModel(nn.Module):
             c0 = torch.zeros(self.n_layers, x_lstm.size(0), self.embed_dim).to(x_lstm.device)
         self.lstm_encoder
         out_lstm, (hn, cn) = self.lstm_encoder(x_lstm, (h0, c0))
-        out_graph = self.graph_encoder(x_graph, adj_matrix)
+        # out_graph = self.graph_encoder(x_graph, adj_matrix)
         # out = torch.cat((out_graph, out_lstm), dim=-1)
-        out = out_graph+ out_lstm
-        # return self.out_layer(out)
-        return out
+        # out = out_graph+ out_lstm
+        return out_lstm
