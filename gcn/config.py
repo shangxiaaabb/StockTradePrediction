@@ -6,7 +6,7 @@ import os
 import torch.nn as nn
 
 class Config():
-    def __init__(self, stock_number=None):
+    def __init__(self, stock_number=None, save_info= None):
         # train
         self.epochs = 64
         self.warm_up = 2
@@ -31,7 +31,7 @@ class Config():
         self.n_nodes= 24
 
         # save
-        self.save_dir = f'./saved_models/{stock_number}' if stock_number else './saved_models/'
+        self.save_dir = f'./saved_models{save_info}/{stock_number}' if stock_number or save_info else './saved_models/'
         os.makedirs(self.save_dir, exist_ok=True)
 
         self.scalar = os.path.join(self.save_dir, 'scalar')

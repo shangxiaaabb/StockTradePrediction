@@ -195,7 +195,7 @@ if __name__ == '__main__':
         if '000046' in path:
             data_path = os.path.join(data_root, path)
             stock_number = re.match(r'^(\d+)', path).group(1)
-            config = Config(stock_number)
+            config = Config(stock_number, save_info= '-Att-LSTM')
             logger = logger_init(f'train-{stock_number}', config.log_file)
             writer = SummaryWriter(config.scalar)
             main(data_path)

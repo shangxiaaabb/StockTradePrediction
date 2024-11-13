@@ -4,9 +4,18 @@ Date: 2024-11-04 01:49:29
 '''
 import torch 
 import torch.nn as nn
+try:
+    from FanModel import FANLayer
+except Exception:
+    from new_model.FanModel import FANLayer
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+'''
+11.11
+1.将所有的线性层替换为了Fanlayer
+'''
+
 class GHAT(nn.Module):
+    '''Graph Attention Encoder'''
     def __init__(self,
                  in_features: int,
                  out_features: int,
@@ -28,16 +37,19 @@ class GHAT(nn.Module):
         self.out_layers = nn.Sequential(
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(in_features*n_nodes, out_features)
+            # nn.Linear(in_features*n_nodes, out_features)
+            # FANLayer(in_features* n_nodes, out_features), # Fan替换Layer
+            nn.Linear(in_features, in_features) #Att+ LSTM      
         )
 
     def forward(self, x:torch.Tensor, adj_matrix:torch.Tensor):
         for layer in self.encoder:
             x = layer(x, adj_matrix)
-        x= x.view(x.shape[0], self.in_features* self.n_nodes)
+        # x= x.view(x.shape[0], self.in_features* self.n_nodes)
         return self.out_layers(x)
 
 class GraphHeterAttention(nn.Module):
+    '''计算Graph Heter Attention 类似Transformer中的Attention'''
     def __init__(self, 
                  in_features: int,
                  embed_dim: int,
@@ -48,7 +60,7 @@ class GraphHeterAttention(nn.Module):
         self.embed_dim = embed_dim
 
         self.W = nn.Linear(in_features, embed_dim)
-        self.a = nn.Parameter(torch.empty(2* embed_dim, n_nodes)).to(device)
+        self.a = nn.Parameter(torch.empty(2* embed_dim, n_nodes))
         nn.init.xavier_uniform_(self.a.data, gain= 1.414)
         self.leakrelu = nn.LeakyReLU()
     
@@ -77,6 +89,7 @@ class GraphHeterAttention(nn.Module):
         return attention
 
 class GraphEncoderLayer(nn.Module):
+    '''Attention+ ResConnect+ Norm'''
     def __init__(self, 
                  in_features: int,
                  embed_dim: int,
@@ -92,9 +105,11 @@ class GraphEncoderLayer(nn.Module):
         ])
         self.feed_forward = nn.Sequential(
             nn.Linear(in_features, ff_dim),
+            # FANLayer(in_features, ff_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(ff_dim, in_features)
+            # FANLayer(ff_dim, in_features)
         )
         self.norm1 = nn.LayerNorm(in_features)
         self.norm2 = nn.LayerNorm(in_features)
@@ -118,6 +133,7 @@ class LSTM(nn.Module):
         
         self.lstm = nn.LSTM(input_size= in_features, hidden_size= n_hid, num_layers= num_layers, batch_first= batch_first)
         self.fc = nn.Linear(n_hid, out_features)
+        # self.fc = FANLayer(n_hid, out_features)
     
     def forward(self, x: torch.Tensor, h0= None, c0= None):
         if h0 is None or c0 is None:
@@ -144,15 +160,28 @@ class PredModel(nn.Module):
         self.graph_encoder = GHAT(in_features, out_features, embed_dim, ff_dim,
                                    n_heads, n_nodes, n_layers)
         self.lstm_encoder = LSTM(in_features, embed_dim, out_features, n_layers)
-        self.out_layer = nn.Linear(2, 1)
 
     def forward(self, x_lstm: torch.Tensor, x_graph: torch.Tensor, adj_matrix: torch.Tensor, h0= None, c0= None):
         if h0 is None or c0 is None:
             h0 = torch.zeros(self.n_layers, x_lstm.size(0), self.embed_dim).to(x_lstm.device)
             c0 = torch.zeros(self.n_layers, x_lstm.size(0), self.embed_dim).to(x_lstm.device)
-        self.lstm_encoder
-        out_lstm, (hn, cn) = self.lstm_encoder(x_lstm, (h0, c0))
-        # out_graph = self.graph_encoder(x_graph, adj_matrix)
-        # out = torch.cat((out_graph, out_lstm), dim=-1)
+
+        # out_lstm, (hn, cn) = self.lstm_encoder(x_lstm, (h0, c0))
+        out_graph = self.graph_encoder(x_graph, adj_matrix)
+        out_lstm, (hn, cn) = self.lstm_encoder(out_graph, (h0, c0))
         # out = out_graph+ out_lstm
         return out_lstm
+    
+if __name__ == '__main__':
+    import sys
+    sys.path.append('..')
+    from config import Config
+    config = Config()
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    x = torch.randn(32, 24, 7).to(device)
+    adj = torch.ones(size= (24, 24)).to(device)
+
+    model = PredModel(config.in_features, config.out_features, config.embed_dim,
+                      config.ff_dim, config.n_heads, config.n_nodes, config.n_layers).to(device)
+    out = model(x, x, adj)
+    print(out.shape)
